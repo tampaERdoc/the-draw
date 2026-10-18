@@ -34,7 +34,11 @@ Neither mistake announces itself. `deploy.py` always runs every step in order,
 whichever file was touched, which is the point of it.
 
 The chain: `tools/members.py` (line-ups) → `tools/copy.py` (headlines, pitches,
-and it calls `tools/redact.py`) → `tools/encrypt.py` × 4 → commit → push.
+and it calls `tools/redact.py`) → `tools/corrections.py` → `tools/encrypt.py`
+across every dataset in `tools/datasets.py` → commit → push.
+
+`tools/datasets.py` is the single list of datasets. Adding a festival means adding
+one line there and one `private/<id>.json`; nothing else needs to know.
 
 ## Two things that must survive every rebuild
 

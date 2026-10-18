@@ -52,6 +52,7 @@ def main():
 
     print('1/4 line-ups');   run(sys.executable, 'tools/members.py')
     print('2/4 copy + redactions'); run(sys.executable, 'tools/copy.py')
+    run(sys.executable, 'tools/corrections.py')
     check_redactions()
     print('3/4 encrypting')
     for fid in IDS:

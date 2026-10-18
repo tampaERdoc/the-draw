@@ -535,7 +535,7 @@ async function unlock(pw){
   Object.entries(sets).forEach(([id,d])=>{const lab=(FEST_REGISTRY.find(f=>f.id===id)||{}).label; d.label=d.label||lab; d.bands.forEach(b=>{b.festival=d.label;});});
   const order=avail.map(f=>f.id).concat(avail.length>1?['all']:[]);
   const h=(location.hash||'').slice(1);
-  const cur=order.includes(h)?h:order[0];
+  const cur = order.includes(h) ? h : (order.includes('all') ? 'all' : order[0]);
   const EVERYTHING=avail.length>1?combine(avail.map(f=>sets[f.id])):sets[avail[0].id];
   const D=cur==='all'?EVERYTHING:sets[cur];
   ssSet('fs-pw',pw);
@@ -1427,6 +1427,9 @@ $('#detail').addEventListener('click',e=>{if(e.target.id==='detail'){cameFrom=nu
 $('#foot').innerHTML=`<b>${esc(D.label)}</b> · data compiled ${esc(D.generated)}. ${esc(D.notes||'')} <b>Est. earnings*</b> are modeled estimates from the supplied earnings workbook — inferences from touring tier, venue capacity, catalog ownership, songwriting splits and label structure, with ±40–60% stated error bars — not reported or audited figures. Open any band for its per-member breakdown and confidence. Ask-the-data runs entirely in your browser with keyword rules — no AI service.`;
 
 drawScale(); renderCohort(); renderTable();
+if(window.matchMedia('(min-width:861px)').matches){   // not on a phone: it would raise the keyboard
+  try{ $('#mq').focus({preventScroll:true}); }catch(e){ $('#mq').focus(); }
+}
 const pending=ssGet('fs-open');
 if(pending){ try{sessionStorage.removeItem('fs-open')}catch(e){}
   if(BANDS.some(b=>b.name===pending)) openDetail(pending); }

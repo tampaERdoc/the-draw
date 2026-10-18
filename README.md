@@ -1,4 +1,6 @@
-# Band Scouting
+# The Draw
+
+A scouting database for finding Sulynn Hago a direct-support slot. "Draw" is the industry word for how many people an act actually pulls into a room, and that is what every band here is measured by: Sincere Engineer sits at 1.00×, and every other band is bigger or smaller than her.
 
 Password-protected static site for scouting bands: audience (Instagram/Spotify), label, booking and modeled-earnings data, plus a graded support-slot target cohort benchmarked against Sincere Engineer.
 

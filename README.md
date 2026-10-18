@@ -33,6 +33,8 @@ Every band with both an Instagram and a Spotify figure is graded on one scale:
 Separately, **`shortlisted`** marks the bands hand-picked as support-slot targets, with the written pitch angle in `pitch` and the original hand tier in `shortlist_tier`. Those carry a ★ and have their own chip and filter — the computed grade measures size and style, the shortlist adds judgement about reachability and the way in.
 
 ## Filtering
+The lists live in a **Festivals** dropdown at the right of the masthead, grouped under "2026 festivals" and "Follow list" with All Bands pinned at the top; the button always shows which list you are in. It replaced a horizontal tab row that would not survive more than a handful of festivals.
+
 Past the password the site opens on **All Bands** with the cursor already in the search box, since searching is nearly always the first move; a URL ending `#warped-2026`, `#riot-2026`, `#fest-2026` or `#watchlist-2026` still opens that list instead, and a phone is left unfocused so the keyboard stays down.
 
 A search box sits in the masthead, next to the list tabs, and follows you down the page. It searches everything — band, member, label, agent, hometown — and shows a live count of what matches; clicking that count jumps to the results, as does Enter. It and the search box in the filter panel are the same search, kept in step.

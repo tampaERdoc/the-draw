@@ -21,10 +21,11 @@ the site's content does; it only matters if the domain itself changes.
 Do not delete the CNAME file — removing it un-sets the custom domain and
 sends the github.io URL redirecting at a name Pages no longer answers for.
 """
-import json, os, subprocess, sys
+import json, os, sys, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-IDS = ('warped-2026', 'riot-2026', 'fest-2026', 'watchlist-2026')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from datasets import IDS
 PASSWORD = 'doghouse'
 ATTR = ('Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>')
 

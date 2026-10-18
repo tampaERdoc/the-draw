@@ -509,9 +509,32 @@ footer b{color:var(--muted)}
 <script>
 // ---- Festival registry: add a festival by dropping data/<id>.js and listing it here ----
 const FEST_REGISTRY=[
-  {id:'warped-2026',label:'Warped Tour 2026'},
+  {id:'fya-2026',label:'FYA Fest 2026'},
+  {id:'ldb-2026',label:'LDB Fest 2026'},
+  {id:'newcolossus-2026',label:'New Colossus 2026'},
+  {id:'treefort-2026',label:'Treefort 2026'},
+  {id:'liberation-2026',label:'Liberation Weekend 2026'},
+  {id:'stoopfest-2026',label:'Stoopfest 2026'},
+  {id:'pouzza-2026',label:'Pouzza Fest 2026'},
+  {id:'midwestfriends-2026',label:'MidWest Friends 2026'},
+  {id:'tieddown-2026',label:'Tied Down 2026'},
+  {id:'sledisland-2026',label:'Sled Island 2026'},
+  {id:'punksylvania-2026',label:'Camp Punksylvania 2026'},
+  {id:'punkisland-2026',label:'Punk Island 2026'},
+  {id:'soundfury-2026',label:'Sound and Fury 2026'},
+  {id:'bumbershoot-2026',label:'Bumbershoot 2026'},
+  {id:'levitation-2026',label:'Levitation 2026'},
+  {id:'hopscotch-2026',label:'Hopscotch 2026'},
+  {id:'supernova-2026',label:'Supernova Ska 2026'},
   {id:'riot-2026',label:'Riot Fest 2026'},
+  {id:'shakyknees-2026',label:'Shaky Knees 2026'},
+  {id:'pygmalion-2026',label:'Pygmalion 2026'},
+  {id:'fourchord-2026',label:'Four Chord 2026'},
+  {id:'cbgb-2026',label:'CBGB Festival 2026'},
+  {id:'furnace-2026',label:'Furnace Fest 2026'},
   {id:'fest-2026',label:'Fest 2026'},
+  {id:'saltydog-2026',label:'Salty Dog Cruise 2026'},
+  {id:'warped-2026',label:'Warped Tour 2026'},
   {id:'watchlist-2026',label:'Watchlist',kind:'list'}
 ];
 const ALL={id:'all',label:'All Bands'};
@@ -629,7 +652,17 @@ async function unlock(pw){
   document.getElementById('lockForm').addEventListener('submit',async e=>{e.preventDefault();
     const pw=document.getElementById('pw').value; if(!pw){err.textContent='Enter the password.';return;}
     btn.disabled=true;btn.textContent='Opening\u2026';err.textContent='';
-    try{await unlock(pw);}catch(x){err.textContent='That password didn\u2019t work \u2014 check it and try again.';btn.disabled=false;btn.textContent='Open';}
+    try{await unlock(pw);}
+    catch(x){
+      // A wrong password and a crash while building the page look identical from here,
+      // and telling the user the password is wrong when it isn't wastes everyone's time.
+      const badPw = (x && (x.name==='OperationError' || /decrypt/i.test(x.message||'')));
+      console.error('unlock failed:', x);
+      err.textContent = badPw
+        ? 'That password didn\u2019t work \u2014 check it and try again.'
+        : 'The password was right, but the page failed to build: ' + ((x&&x.message)||x);
+      btn.disabled=false;btn.textContent='Open';
+    }
   });
 })();
 function start(D, EVERY){
@@ -1455,7 +1488,7 @@ function openDetail(name){
         ['Confidence',esc(b.earnings_confidence)],
         ['Stated error band',esc(b.earnings_error_band)],
         ['Source',esc(b.earnings_source)]])}
-        <div class="flag" style="margin-top:8px"><b>Read this before quoting the number:</b> ${esc(b.earnings_caveat)}</div></div>`:''}
+        <div class="flag" style="margin-top:8px"><b>Read this before quoting the number:</b> ${esc(b.earnings_caveat||D.earningsCaveat||"")}</div></div>`:''}
       <div class="dgroup"><h4>Record label</h4>${kv([['Label',esc(b.label)],['Notes',esc(b.label_note)||'—'],['Source',links(b.label_source)]])}</div>
       <div class="dgroup"><h4>Booking</h4>${kv([['Agency (North America)',`<b class="${b.booking_evidence==='Not found'?'nf':''}">${esc(b.agency)}</b>`],['Agent(s)',esc(b.agent)],['Other territories / notes',esc(b.booking_notes)||'—'],['Evidence',esc(b.booking_evidence)],['Source',links(b.booking_source)]])}</div>
     </div>`;

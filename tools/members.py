@@ -9,11 +9,12 @@ Sources, in order of precedence:
 
 Run after any dataset rebuild, before encrypting. tools/copy.py calls it.
 """
-import json, os, re, unicodedata, collections
+import json, os, sys, re, unicodedata, collections
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RAW = '/home/claude/people/members_raw.json'
-IDS = ('warped-2026', 'riot-2026', 'fest-2026', 'watchlist-2026')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from datasets import IDS
 
 # People MusicBrainz does not credit — touring members and similar. band -> [(person, role)]
 MANUAL = {
@@ -77,6 +78,12 @@ def build():
                 out.append({'name': nm, 'mbid': None, 'roles': [role], 'begin': '', 'end': '',
                             'current': True, 'source': 'Added by hand'})
             out.sort(key=lambda m: (not m['current'], m['begin'] or '9999', m['name']))
+            # The 2026 festival datasets already carry line-ups resolved during their own
+            # build. This pass only knows about the original 1,263 bands, so an empty result
+            # here means "not my department", not "this band has no members" — never let it
+            # wipe a line-up somebody else established.
+            if not out and b.get('members'):
+                continue
             b['members'] = out
             b['member_names'] = ', '.join(m['name'] for m in out)
             b['member_count'] = len(out)

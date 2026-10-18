@@ -19,8 +19,30 @@ from cryptography.hazmat.primitives import hashes
 ITER = 310000
 fid, pw = sys.argv[1], sys.argv[2]
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-plain = open(os.path.join(root, 'private', fid + '.json'), 'rb').read()
-json.loads(plain)  # validate
+# The private file stays indented and readable; what ships is compact. Indentation
+# is perhaps a fifth of the plaintext and encrypts into real bytes over the wire.
+raw = open(os.path.join(root, 'private', fid + '.json'), 'rb').read()
+d = json.loads(raw)
+
+# Two kinds of pure redundancy dominated the payload, so they are squeezed out here
+# rather than in the private file, which stays full-fidelity for debugging.
+#   members[].mbid  - 36 characters per member that the page never reads (37% of one set)
+#   earnings_caveat - the same long sentence repeated on every band (15% of one set)
+caveats = {}
+for b in d.get('bands', []):
+    for m in (b.get('members') or []):
+        m.pop('mbid', None)
+    c = b.get('earnings_caveat')
+    if c:
+        caveats[c] = caveats.get(c, 0) + 1
+if caveats:
+    common = max(caveats, key=caveats.get)
+    if caveats[common] > 3:
+        d['earningsCaveat'] = common          # the page falls back to this
+        for b in d.get('bands', []):
+            if b.get('earnings_caveat') == common:
+                b['earnings_caveat'] = ''
+plain = json.dumps(d, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
 saltfile = os.path.join(root, 'private', 'salt.bin')
 if not os.path.exists(saltfile):
     with open(saltfile, 'wb') as f:

@@ -177,6 +177,34 @@ section > h2 .of{font-weight:400;color:var(--faint);font-size:15px}
 .card .agency b{color:var(--body);font-weight:600}
 .card .agency.nf{color:var(--faint)}
 
+/* ---------- people ---------- */
+.lineup{display:flex;flex-wrap:wrap;gap:6px;margin:0}
+.who{appearance:none;background:var(--sunk);border:1px solid transparent;border-radius:999px;
+  padding:4px 11px;cursor:pointer;font:500 13px "Instrument Sans",sans-serif;color:var(--body);
+  display:inline-flex;align-items:baseline;gap:6px}
+.who:hover{border-color:var(--rule);background:var(--panel);color:var(--ink)}
+.who small{font-size:11.5px;color:var(--faint);font-weight:400}
+.who.former{opacity:.62}
+.who.former small::before{content:"former \00b7 "}
+.pplstrip{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px 14px;margin:14px 0 0}
+.pplstrip[hidden]{display:none!important}
+.pplstrip h4{margin:0 0 9px;font:600 13px "Instrument Sans",sans-serif;color:var(--muted)}
+.pplstrip .row{display:flex;flex-wrap:wrap;gap:7px}
+.pplstrip .who{background:var(--datum-soft);color:var(--datum)}
+.pplstrip .who:hover{background:var(--datum);color:#fff}
+.pplstrip .who small{color:inherit;opacity:.72}
+.pbands{display:flex;flex-direction:column;gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:9px;overflow:hidden}
+.pband{display:flex;align-items:center;gap:11px;background:var(--panel);border:0;width:100%;
+  padding:11px 13px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.pband:hover{background:var(--sunk)}
+.pband b{font-weight:600;color:var(--ink);font-size:15px}
+.pband .meta{color:var(--muted);font-size:12.5px}
+.pband .sp{flex:1}
+.pband .idx{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.pband .elsewhere{display:block;font-size:11px;color:var(--faint);letter-spacing:.02em}
+.backlink{background:none;border:0;color:var(--datum);cursor:pointer;font:inherit;font-size:13px;padding:0;
+  text-decoration:underline;text-underline-offset:2px}
+
 /* ---------- picking + export ---------- */
 .card{position:relative}
 .cardbody{background:none;border:0;padding:0;margin:0;text-align:left;color:inherit;font:inherit;cursor:pointer;
@@ -393,6 +421,7 @@ footer b{color:var(--muted)}
       <div class="sliders" id="sliders"></div>
       <div class="filters" id="filters"></div>
     </div>
+    <div class="pplstrip" id="pplstrip" hidden><h4 id="pplHead"></h4><div class="row" id="pplRow"></div></div>
     <div class="resultbar">
       <div class="count" id="count"> <button class="pickall" id="pickShown" type="button"></button><button class="pickall" id="pickNone" type="button" hidden>Clear selection</button></div>
       <div class="hint">Click a column heading to sort, or a row for the full record</div>
@@ -479,7 +508,8 @@ async function unlock(pw){
   const order=avail.map(f=>f.id).concat(avail.length>1?['all']:[]);
   const h=(location.hash||'').slice(1);
   const cur=order.includes(h)?h:order[0];
-  const D=cur==='all'?combine(avail.map(f=>sets[f.id])):sets[cur];
+  const EVERYTHING=avail.length>1?combine(avail.map(f=>sets[f.id])):sets[avail[0].id];
+  const D=cur==='all'?EVERYTHING:sets[cur];
   ssSet('fs-pw',pw);
   document.getElementById('lock').hidden=true; document.getElementById('app').hidden=false;
   const buttons=FEST_REGISTRY.concat(avail.length>1?[ALL]:[]);
@@ -489,7 +519,7 @@ async function unlock(pw){
     return `<button role="tab" type="button" data-id="${f.id}" aria-selected="${f.id===cur}" ${ok?'':'disabled'}>${f.label}${ok?`<small>${n}</small>`:'<small>coming soon</small>'}</button>`;}).join('');
   document.getElementById('festToggle').addEventListener('click',e=>{const b=e.target.closest('button[data-id]');if(!b||b.disabled||b.dataset.id===cur)return;location.hash=b.dataset.id;location.reload();});
   window.addEventListener('hashchange',()=>{const h=(location.hash||'').slice(1); if(h!==cur) location.reload();});
-  start(D);
+  start(D, EVERYTHING.bands);
 }
 (async function(){
   await Promise.all(FEST_REGISTRY.map(f=>loadScript('data/'+f.id+'.enc.js')));
@@ -502,7 +532,7 @@ async function unlock(pw){
     try{await unlock(pw);}catch(x){err.textContent='That password didn\u2019t work \u2014 check it and try again.';btn.disabled=false;btn.textContent='Open';}
   });
 })();
-function start(D){
+function start(D, EVERY){
 const BANDS = D.bands, BM = D.benchmark;
 const MULTI = new Set(BANDS.map(b=>b.festival)).size>1;
 
@@ -534,8 +564,31 @@ BANDS.forEach(b=>{
   b.genreTags = String(b.genre||'').split('/').map(s=>s.replace(/\(.*?\)/g,'').trim()).filter(Boolean);
   b.onWatchlist = !!b.watchlist;
   b.earnConf = b.earnings_confidence || 'Not in earnings workbook';
-  b._all = Object.entries(b).filter(([k])=>!k.startsWith('_')).map(([k,v])=>Array.isArray(v)?v.join(' '):(v==null?'':String(v))).join(' \u0001 ').toLowerCase();
+  b._all = Object.entries(b).filter(([k])=>!k.startsWith('_'))
+    .map(([k,v])=>Array.isArray(v)
+      ? v.map(x=>(x&&typeof x==='object')?(x.name||''):x).join(' ')
+      : (v==null?'':String(v)))
+    .join(' \u0001 ').toLowerCase();
 });
+
+// ---------- who plays in what ----------
+const pkey=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+const PEOPLE=new Map();
+const INVIEW=new Set(BANDS.map(b=>b.name));
+((EVERY&&EVERY.length)?EVERY:BANDS).forEach(b=>(b.members||[]).forEach(m=>{
+  if(!m||!m.name) return;
+  const k=pkey(m.name); if(!k) return;
+  if(!PEOPLE.has(k)) PEOPLE.set(k,{name:m.name,bands:[]});
+  const p=PEOPLE.get(k);
+  if(!p.bands.some(x=>x.band===b.name)) p.bands.push({band:b.name,roles:m.roles||[],begin:m.begin,end:m.end,current:m.current!==false,inView:INVIEW.has(b.name),festival:b.plays_2026_text||b.festival||''});
+}));
+PEOPLE.forEach(p=>p.bands.sort((a,b)=>(b.current?1:0)-(a.current?1:0)||a.band.localeCompare(b.band)));
+const EVERY_BY_NAME=new Map(((EVERY&&EVERY.length)?EVERY:BANDS).map(b=>[b.name,b]));
+const peopleFor=q=>{
+  const t=pkey(q); if(t.length<3) return [];
+  return [...PEOPLE.values()].filter(p=>pkey(p.name).includes(t))
+    .sort((a,b)=>b.bands.length-a.bands.length||a.name.localeCompare(b.name));
+};
 
 // ---------- header ----------
 document.title=(D.label||D.title)+' \u2014 Band Scouting';
@@ -763,7 +816,8 @@ const FIELDS = [
  ['booking_notes','Other territories / booking notes'],['booking_evidence','Booking evidence'],['pitch','Fit / pitch angle'],['flags','Flags'],
  ['earnings_confidence','Earnings confidence'],['earnings_members','Earnings — members listed'],['watchlist','Watchlist'],
  ['entity_type','Record type'],['genre_source','Genre source'],['spotify_verification','Spotify match check'],
- ['plays_2026_text','Plays in 2026'],['grade_basis','How the grade was reached'],['predicted_set_time','Predicted set time']
+ ['plays_2026_text','Plays in 2026'],['grade_basis','How the grade was reached'],['predicted_set_time','Predicted set time'],
+ ['member_names','Band member']
 ];
 $('#field').innerHTML = FIELDS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
 const uniq = (arr)=>[...new Set(arr)].sort((a,b)=>a.localeCompare(b));
@@ -930,6 +984,17 @@ function syncSel(){
   $('#pickShown').hidden = !shown.length;
   $('#pickNone').hidden = n===0;
 }
+function renderPeopleStrip(){
+  const strip=$('#pplstrip'); if(!strip) return;
+  const q=$('#q').value.trim(), field=$('#field').value;
+  let hits=(field==='_all'||field==='member_names') ? peopleFor(q).slice(0,14) : [];
+  if(!hits.length && personNote) hits=personNote.map(n=>PEOPLE.get(pkey(n))).filter(Boolean).slice(0,14);
+  strip.hidden = hits.length===0;
+  if(!hits.length) return;
+  $('#pplHead').textContent = hits.length===1 ? 'One person matches that name' : `${hits.length} people match that name`;
+  $('#pplRow').innerHTML = hits.map(p=>
+    `<button class="who" type="button" data-person="${esc(p.name)}">${esc(p.name)}<small>${p.bands.length} band${p.bands.length>1?'s':''}</small></button>`).join('');
+}
 function renderTable(){
   $('#tbl thead').innerHTML='<tr><th class="pickcell"></th>'+COLS.map(([k,l])=>`<th data-k="${k}">${l}${k===sortKey?`<span class="arr">${sortDir>0?'↑':'↓'}</span>`:''}</th>`).join('')+'</tr>';
   const list=currentList();
@@ -943,8 +1008,12 @@ function renderTable(){
     <td class="n" title="${b.earnings_confidence?esc(b.earnings_confidence+' \u2014 '+(b.earnings_error_band||'')):''}">${b.est_income_top_member?'$'+short(b.est_income_top_member):'—'}</td>
     <td>${hl(b.label)}</td><td class="${/^Not /.test(b.agency||'')?'nf':''}">${hl(b.agency)}</td><td>${hl(b.agent)}</td></tr>`).join('')
     || `<tr><td colspan="${COLS.length+1}" class="empty">Nothing matches those filters. Widen a slider or clear one.</td></tr>`;
-  syncSel();
+  syncSel(); renderPeopleStrip();
 }
+document.addEventListener('click',e=>{
+  const w=e.target.closest('[data-person]'); if(!w) return;
+  e.preventDefault(); openPerson(w.dataset.person);
+});
 $('#tbl thead').addEventListener('click',e=>{const th=e.target.closest('th'); if(!th||!th.dataset.k)return; const k=th.dataset.k; if(sortKey===k)sortDir*=-1; else{sortKey=k;sortDir=(k.includes('followers')||k.includes('listeners')||k.includes('size'))?-1:1;} renderTable();});
 $('#tbl tbody').addEventListener('click',e=>{
   if(e.target.closest('.pick')) return;
@@ -972,6 +1041,7 @@ const EXPORT_COLS=[
  ['Instagram followers','instagram_followers'],['Instagram handle','instagram_handle'],
  ['Spotify monthly listeners','spotify_listeners'],
  ['Size vs Sincere Engineer','size_vs_sincere_engineer'],
+ ['Line-up','member_names'],['Line-up source','member_source'],
  ['Record label','label'],['Booking agency','agency'],['Booking agent','agent'],
  ['Est. member earnings (modelled)','est_income_top_member'],['Earnings confidence','earnings_confidence'],
  ['Why this grade','grade_basis'],['Why shortlisted','pitch'],
@@ -1104,7 +1174,8 @@ const GENRES = uniq(BANDS.flatMap(b=>b.genreTags));
 const LABELS = uniq(BANDS.map(b=>b.label)).filter(l=>!/^Not found|^Independent/i.test(l));
 const STOP = new Set('bill bills plays play played only just every each across both list lists festival festivals combined everywhere a an the and or of on in at by with for to from who which what show me find list all bands band acts act artists artist are is that have has their them playing play plays any some give booked book books do does were was than like about near around please'.split(' '));
 function parseNum(s){const m=s.match(/([\d.,]+)\s*(k|m|thousand|million)?/i); if(!m)return null; let n=parseFloat(m[1].replace(/,/g,'')); const u=(m[2]||'').toLowerCase(); if(u==='k'||u==='thousand')n*=1e3; if(u==='m'||u==='million')n*=1e6; return n;}
-function parseAsk(text){
+let personNote=null;
+function parseAsk(text){ personNote=null;
   let t=' '+text.toLowerCase().replace(/[’']/g,"'")+' '; const tests=[], notes=[]; let sort=null;
   const eat=re=>{t=t.replace(re,' ');};
   // festival
@@ -1181,6 +1252,20 @@ function parseAsk(text){
   for(const g of GENRES.slice().sort((a,b)=>b.length-a.length)){const gl=g.toLowerCase(); if(new RegExp('(^|[^\\w-])'+gl.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^\\w-]|$)').test(t)){gq.push(g); t=t.replace(gl,' ');}}
   if(/\bheavy\b/.test(t)){['Metalcore','Deathcore','Hardcore','Melodic hardcore','Nu-metal','Alt-metal','Progressive metal','Southern metal'].forEach(g=>GENRES.includes(g)&&gq.push(g));eat(/\bheavy\b/g);}
   if(gq.length){tests.push(b=>b.genreTags.some(x=>gq.includes(x)));notes.push('genre: '+gq.join(' or '));}
+  // a band member's name
+  {
+    const pq=t.replace(/\b(who|plays?|played|member|members|band|bands|lineup|line-?up|in|with|is|are|of|the|for|guitar|bass|drums|vocals|sings?|singer|drummer|guitarist|bassist)\b/g,' ').replace(/\s+/g,' ').trim();
+    const hits = pq.length>=3 ? peopleFor(pq) : [];
+    const exact = hits.filter(h=>pkey(h.name)===pkey(pq));
+    const chosen = exact.length?exact : (hits.length===1?hits:[]);
+    if(chosen.length){
+      const names=new Set(); chosen.forEach(h=>h.bands.forEach(x=>names.add(x.band)));
+      tests.push(b=>names.has(b.name));
+      notes.push('member: '+chosen.map(h=>h.name).join(', '));
+      personNote=chosen.map(h=>h.name);
+      t=t.replace(pq,' ');
+    }
+  }
   // leftover words -> text
   const words=t.replace(/[^a-z0-9+&.\- ]/g,' ').split(/\s+/).filter(w=>w&&!STOP.has(w)&&w.length>2&&!/^\d+$/.test(w)&&!/^(spotify|listeners|instagram|followers|monthly|insta|bigger|smaller|size|x|but|under|over|records?|label|agency|agent|booking|who|book|earnings?|earning|income|est|estimate|estimates|estimated|annual|confidence|conf|modeled|cohort|position|watchlist|followlist)$/.test(w));
   if(words.length){tests.push(b=>words.every(w=>b._all.includes(w)));notes.push('text: '+words.join(' '));}
@@ -1189,7 +1274,7 @@ function parseAsk(text){
 function runAsk(){const v=$('#askInput').value.trim(); if(!v){clearAsk();renderTable();return;} askState=parseAsk(v);
   $('#understood').innerHTML='Understood as: '+(askState.notes.length?askState.notes.map(n=>`<span class="u">${esc(n)}</span>`).join(''):'<span class="u">no filters recognized</span>');
   renderTable(); document.getElementById('all').scrollIntoView({behavior:'smooth',block:'start'});}
-function clearAsk(){askState=null;$('#askInput').value='';$('#understood').innerHTML='';}
+function clearAsk(){askState=null;personNote=null;$('#askInput').value='';$('#understood').innerHTML='';}
 $('#askForm').addEventListener('submit',e=>{e.preventDefault();runAsk();});
 $('#askClear').addEventListener('click',()=>{clearAsk();renderTable();});
 
@@ -1198,6 +1283,7 @@ function link(u,label){return u?`<a href="${esc(u)}" target="_blank" rel="noopen
 function links(s){if(!s)return '—'; return esc(s).replace(/(https?:\/\/[^\s;,)]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');}
 function openDetail(name){
   const b=BANDS.find(x=>x.name===name); if(!b) return;
+  cameFrom=b.name;
   const kv=rows=>'<dl class="kv">'+rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')+'</dl>';
   const d=$('#detail');
   d.innerHTML=`<div class="dh"><div>
@@ -1222,6 +1308,14 @@ function openDetail(name){
         ...(b.entity_type&&b.entity_type!=='Band'?[['Record type',esc(b.entity_type)]]:[]),
         ...(b.genre_source?[['Genre source',esc(b.genre_source)]]:[]),
         ['Source list',esc(b.festival||'')]])}</div>`:''}
+      ${(b.members&&b.members.length)?`<div class="dgroup"><h4>Line-up <span class="muted" style="font-weight:400;font-size:12px">— ${esc(b.member_source||'')}</span></h4>
+        <div class="lineup">${b.members.map(m=>{
+          const yrs=[m.begin,m.current===false?(m.end||'left'):''].filter(Boolean).join('\u2013');
+          const bits=[(m.roles||[]).join(', '),yrs].filter(Boolean).join(' \u00b7 ');
+          return `<button class="who${m.current===false?' former':''}" type="button" data-person="${esc(m.name)}">${esc(m.name)}${bits?`<small>${esc(bits)}</small>`:''}</button>`;
+        }).join('')}</div></div>`:''}
+      ${(b.plays_in&&b.plays_in.length)?`<div class="dgroup"><h4>Also plays in</h4>
+        <div class="lineup">${b.plays_in.map(n=>`<button class="who" type="button" data-person="${esc(b.name)}">${esc(n)}</button>`).join('')}</div></div>`:''}
       <div class="dgroup"><h4>Audience</h4>${kv([
         ['Instagram followers',`<b>${fmt(b.instagram_followers)}</b> <span class="muted">(${esc(b.instagram_source)})</span>`],
         ['Instagram handle',link(b.instagram_url,b.instagram_handle)],
@@ -1244,11 +1338,47 @@ function openDetail(name){
     </div>`;
   d.showModal(); $('#dClose').onclick=()=>d.close();
 }
-$('#detail').addEventListener('click',e=>{if(e.target.id==='detail')e.target.close();});
+let cameFrom=null;
+function openPerson(name){
+  const p=PEOPLE.get(pkey(name));
+  const d=$('#detail');
+  if(!p){ return; }
+  const rows=p.bands.map(x=>{
+    const b=BANDS.find(y=>y.name===x.band)||EVERY_BY_NAME.get(x.band)||{};
+    const bits=[(x.roles||[]).join(', '), x.current?'':'former member'].filter(Boolean).join(' \u00b7 ');
+    return `<button class="pband" type="button" data-band="${esc(x.band)}">
+      ${b.grade?`<span class="grade ${gcls(b.grade)}">${esc(b.grade)}</span>`:'<span class="grade g-none">\u2014</span>'}
+      <span><b>${esc(x.band)}</b>${bits?`<span class="meta"> \u2014 ${esc(bits)}</span>`:''}
+        <span class="meta" style="display:block">${[b.plays_2026_text&&b.plays_count?b.plays_2026_text:'',b.genre||''].filter(Boolean).map(esc).join(' \u00b7 ')}</span></span>
+      <span class="sp"></span>
+      <span class="idx">${b.size_vs_sincere_engineer!=null?b.size_vs_sincere_engineer.toFixed(2)+'\u00d7':''}${x.inView?'':'<span class="elsewhere">other list</span>'}</span>
+    </button>`;}).join('');
+  d.innerHTML=`<div class="dh"><div>
+      <div class="muted" style="font-size:13px">Person</div>
+      <h3 id="dTitle">${esc(p.name)}</h3>
+      <div class="muted" style="font-size:13px">${p.bands.length===1?'Plays in one band we track':`Plays in ${p.bands.length} bands we track`}</div></div>
+      <button class="close" aria-label="Close" id="dClose">\u2715</button></div>
+    <div class="db"><div class="dgroup"><div class="pbands">${rows}</div></div>
+      ${cameFrom?`<div class="dgroup"><button class="backlink" id="dBack">\u2190 Back to ${esc(cameFrom)}</button></div>`:''}
+    </div>`;
+  if(!d.open) d.showModal();
+  $('#dClose').onclick=()=>{cameFrom=null;d.close();};
+  const back=$('#dBack'); if(back) back.onclick=()=>{const n=cameFrom;cameFrom=null;openDetail(n);};
+  d.querySelectorAll('[data-band]').forEach(el=>el.onclick=()=>{
+    cameFrom=null;
+    const nm=el.dataset.band;
+    if(BANDS.some(y=>y.name===nm)) return openDetail(nm);
+    ssSet('fs-open',nm); location.hash='all'; location.reload();   // it lives on another list
+  });
+}
+$('#detail').addEventListener('click',e=>{if(e.target.id==='detail'){cameFrom=null;e.target.close();}});
 
 $('#foot').innerHTML=`<b>${esc(D.label)}</b> · data compiled ${esc(D.generated)}. ${esc(D.notes||'')} <b>Est. earnings*</b> are modeled estimates from the supplied earnings workbook — inferences from touring tier, venue capacity, catalog ownership, songwriting splits and label structure, with ±40–60% stated error bars — not reported or audited figures. Open any band for its per-member breakdown and confidence. Ask-the-data runs entirely in your browser with keyword rules — no AI service.`;
 
 drawScale(); renderCohort(); renderTable();
+const pending=ssGet('fs-open');
+if(pending){ try{sessionStorage.removeItem('fs-open')}catch(e){}
+  if(BANDS.some(b=>b.name===pending)) openDetail(pending); }
 }
 </script>
 </body>

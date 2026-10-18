@@ -579,7 +579,9 @@ BANDS.forEach(b=>{
 });
 
 // ---------- who plays in what ----------
-const pkey=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+// keeps non-Latin letters: 16 members here have Japanese names that an
+// ascii-only key would erase, collapsing them all into one phantom person.
+const pkey=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'');
 const PEOPLE=new Map();
 const INVIEW=new Set(BANDS.map(b=>b.name));
 ((EVERY&&EVERY.length)?EVERY:BANDS).forEach(b=>(b.members||[]).forEach(m=>{

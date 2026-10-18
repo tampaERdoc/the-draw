@@ -67,6 +67,21 @@ h1,h2,h3{color:var(--ink);margin:0;font-weight:600;letter-spacing:-.016em}
 .mast{position:sticky;top:0;z-index:30;background:var(--panel);border-bottom:1px solid var(--rule)}
 .mast .wrap{display:flex;align-items:center;gap:18px;min-height:56px;flex-wrap:wrap;padding-block:8px}
 .mast .name{font:600 16px/1 "Instrument Sans",sans-serif;letter-spacing:-.01em;color:var(--ink);white-space:nowrap}
+.mastfind{position:relative;flex:1 1 230px;max-width:390px;display:flex;align-items:center}
+.mastfind svg{position:absolute;left:10px;width:15px;height:15px;pointer-events:none;
+  fill:none;stroke:var(--faint);stroke-width:1.6;stroke-linecap:round}
+.mastfind input{width:100%;appearance:none;background:var(--field);border:1px solid transparent;border-radius:8px;
+  font:400 14px "Instrument Sans",sans-serif;color:var(--ink);padding:8px 10px 8px 31px}
+.mastfind input::placeholder{color:var(--faint)}
+.mastfind input:focus{outline:none;border-color:var(--datum);background:var(--panel);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--datum) 16%,transparent)}
+.mastfind input::-webkit-search-cancel-button{cursor:pointer}
+.mastfind input:not(:placeholder-shown){padding-right:84px}
+.mastjump{position:absolute;right:26px;top:50%;transform:translateY(-50%);appearance:none;border:0;
+  background:none;cursor:pointer;color:var(--datum);font:500 12.5px "Instrument Sans",sans-serif;
+  padding:3px 4px;border-radius:5px;white-space:nowrap}
+.mastjump:hover{text-decoration:underline}
+.mastjump[hidden]{display:none}
 .tabs{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto}
 .tabs button{appearance:none;background:none;border:0;border-radius:6px;cursor:pointer;color:var(--muted);
   font:500 14px "Instrument Sans",sans-serif;padding:7px 11px;display:inline-flex;align-items:baseline;gap:6px;white-space:nowrap}
@@ -355,7 +370,9 @@ footer b{color:var(--muted)}
 
 @media (max-width:760px){
   .mast .wrap{min-height:0}
-  .mast .name{width:100%}
+  .mast .name{width:auto}
+  .mastfind{flex:1 1 140px;max-width:none;order:1}
+  .tabs{order:2}
   .tabs{margin-left:0;width:100%;overflow-x:auto;padding-bottom:2px}
   .kv{grid-template-columns:1fr;gap:2px 0}
   .kv dt{margin-top:9px}
@@ -380,6 +397,11 @@ footer b{color:var(--muted)}
 <div class="app" id="app" hidden>
 <nav class="mast" aria-label="Choose list"><div class="wrap">
   <span class="name">The Draw</span>
+  <div class="mastfind">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.4"/><path d="M10.3 10.3 14 14"/></svg>
+    <input type="search" id="mq" placeholder="Search bands, people, labels, agents…" aria-label="Search bands, people, labels and agents">
+    <button class="mastjump" id="mastjump" type="button" hidden></button>
+  </div>
   <div class="tabs" id="festToggle" role="tablist"></div>
 </div></nav>
 <header class="hero">
@@ -1007,6 +1029,9 @@ function renderTable(){
   $('#tbl thead').innerHTML='<tr><th class="pickcell"></th>'+COLS.map(([k,l])=>`<th data-k="${k}">${l}${k===sortKey?`<span class="arr">${sortDir>0?'↑':'↓'}</span>`:''}</th>`).join('')+'</tr>';
   const list=currentList();
   $('#count').firstChild.textContent=`${fmt(list.length)} of ${fmt(BANDS.length)} bands `;
+  const mj=$('#mastjump');
+  mj.hidden = !$('#mq').value.trim();
+  if(!mj.hidden) mj.textContent = `${fmt(list.length)} \u2193`;
   $('#tbl tbody').innerHTML = list.map(b=>`<tr data-name="${esc(b.name)}">
     <td class="pickcell"><label class="pick" style="position:static"><input type="checkbox" data-pick="${esc(b.name)}" ${SEL.has(b.name)?'checked':''} aria-label="Select ${esc(b.name)}"></label></td>
     <td>${b.grade?`<span class="grade ${gcls(b.grade)}">${esc(b.grade)}</span>`:'<span class="muted">—</span>'}${b.shortlisted?' <span class="star" title="Hand-picked target">★</span>':''}</td>
@@ -1167,9 +1192,23 @@ $('#expCopy').addEventListener('click',e=>busy(e.target,'Copying…',()=>{
   }
   return navigator.clipboard.writeText(plain).then(done);
 }));
-['#q','#field'].forEach(s=>$(s).addEventListener('input',renderTable));
+['#q','#field'].forEach(s=>$(s).addEventListener('input',()=>{
+  if($('#mq').value!==$('#q').value) $('#mq').value=$('#q').value;
+  renderTable();
+}));
+$('#mq').addEventListener('input',()=>{
+  $('#q').value=$('#mq').value;
+  if($('#mq').value && $('#field').value!=='_all' && $('#field').value!=='member_names') $('#field').value='_all';
+  renderTable();
+});
+$('#mastjump').addEventListener('click',()=>document.getElementById('all').scrollIntoView({behavior:'smooth',block:'start'}));
+$('#mq').addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  document.getElementById('all').scrollIntoView({behavior:'smooth',block:'start'});
+});
 $('#filters').addEventListener('input',renderTable);
-$('#reset').addEventListener('click',()=>{$('#q').value='';$('#field').value='_all';
+$('#reset').addEventListener('click',()=>{$('#q').value='';$('#mq').value='';$('#field').value='_all';
   $('#filters').querySelectorAll('select,input:not([type=range])').forEach(x=>x.value='');
   SLIDERS.filter(S=>S.n>1).forEach(S=>S.reset());clearAsk();renderTable();});
 

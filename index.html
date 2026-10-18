@@ -185,6 +185,13 @@ section > h2 .of{font-weight:400;color:var(--faint);font-size:15px}
 .who:hover{border-color:var(--rule);background:var(--panel);color:var(--ink)}
 .who small{font-size:11.5px;color:var(--faint);font-weight:400}
 .who.former{opacity:.62}
+.formerbox{margin-top:9px}
+.formerbox>summary{cursor:pointer;color:var(--datum);font-size:12.5px;list-style:none;width:max-content}
+.formerbox>summary::-webkit-details-marker{display:none}
+.formerbox>summary::before{content:"\25b8 ";display:inline-block;transition:transform .12s}
+.formerbox[open]>summary::before{transform:rotate(90deg)}
+.formerbox>summary:hover{text-decoration:underline}
+.formerbox .lineup{margin-top:8px}
 .who.former small::before{content:"former \00b7 "}
 .pplstrip{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px 14px;margin:14px 0 0}
 .pplstrip[hidden]{display:none!important}
@@ -1308,12 +1315,16 @@ function openDetail(name){
         ...(b.entity_type&&b.entity_type!=='Band'?[['Record type',esc(b.entity_type)]]:[]),
         ...(b.genre_source?[['Genre source',esc(b.genre_source)]]:[]),
         ['Source list',esc(b.festival||'')]])}</div>`:''}
-      ${(b.members&&b.members.length)?`<div class="dgroup"><h4>Line-up <span class="muted" style="font-weight:400;font-size:12px">— ${esc(b.member_source||'')}</span></h4>
-        <div class="lineup">${b.members.map(m=>{
+      ${(b.members&&b.members.length)?(()=>{
+        const chip=m=>{
           const yrs=[m.begin,m.current===false?(m.end||'left'):''].filter(Boolean).join('\u2013');
           const bits=[(m.roles||[]).join(', '),yrs].filter(Boolean).join(' \u00b7 ');
-          return `<button class="who${m.current===false?' former':''}" type="button" data-person="${esc(m.name)}">${esc(m.name)}${bits?`<small>${esc(bits)}</small>`:''}</button>`;
-        }).join('')}</div></div>`:''}
+          return `<button class="who${m.current===false?' former':''}" type="button" data-person="${esc(m.name)}">${esc(m.name)}${bits?`<small>${esc(bits)}</small>`:''}</button>`;};
+        const now=b.members.filter(m=>m.current!==false), was=b.members.filter(m=>m.current===false);
+        return `<div class="dgroup"><h4>Line-up <span class="muted" style="font-weight:400;font-size:12px">\u2014 ${esc(b.member_source||'')}</span></h4>
+        <div class="lineup">${(now.length?now:b.members).map(chip).join('')}</div>
+        ${(now.length&&was.length)?`<details class="formerbox"><summary>${was.length} former member${was.length>1?'s':''}</summary>
+          <div class="lineup">${was.map(chip).join('')}</div></details>`:''}</div>`;})():''}
       ${(b.plays_in&&b.plays_in.length)?`<div class="dgroup"><h4>Also plays in</h4>
         <div class="lineup">${b.plays_in.map(n=>`<button class="who" type="button" data-person="${esc(b.name)}">${esc(n)}</button>`).join('')}</div></div>`:''}
       <div class="dgroup"><h4>Audience</h4>${kv([

@@ -33,6 +33,7 @@ BAD_INSTAGRAM = {
     'Smoker Dad':          'Handle @smokerdad displays as “Big Daddy Smokes” and is categorised Tobacco & Smoking. Identity unconfirmed, figure removed.',
     'Mayday Parade':       'MusicBrainz handle @maydayparadeband resolves to an account named “saved” with 0 posts and 72 followers. Not this band. Figure removed.',
     'Hause Plants':        'Handle @hauseplants displays as “gui”, a personal account unrelated to the band. Figure removed.',
+    '1876':                'Handle @1876band displays as “Wunehtsehfonsiks”, unrelated to the band. Figure removed.',
 }
 
 # Figures kept but marked uncertain: single-sourced, or two trackers disagreeing past the
@@ -45,6 +46,9 @@ DOUBTFUL = {
     'Aubory Bugg':    'Social Blade 155,708 against HypeAuditor 116,998 \u2014 25% apart. Uncertain.',
     'Womack Sisters': 'Social Blade 295,113 against HypeAuditor 233,283 \u2014 26% apart. Uncertain.',
     'Thee Sinseers':  'Social Blade 188,405 against HypeAuditor 164,019 \u2014 15% apart. Uncertain.',
+    'Cure For Paranoia': 'Handle resolves to frontman Cameron McCloud’s account at 639,277 — far above this act’s profile. Likely a personal rather than band account.',
+    'Enrage':            'Handle @worldenrage displays as “Jeff Enrage”, which reads as a member’s account rather than the band’s.',
+    'Animals in the Attic': 'Handle displays as “Spencer Rakela”, a personal name. Account may be the frontman’s rather than the band’s.',
 }
 
 def audit(b):

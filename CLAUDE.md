@@ -33,7 +33,9 @@ what ships. So:
 Neither mistake announces itself. `deploy.py` always runs every step in order,
 whichever file was touched, which is the point of it.
 
-The chain: `tools/members.py` (line-ups) → `tools/copy.py` (headlines, pitches,
+The chain: `tools/members.py` (MusicBrainz line-ups) → `tools/discogs_members.py`
+(Discogs line-ups, only for bands MusicBrainz missed) → `tools/instruments.py`
+(one primary instrument per member) → `tools/copy.py` (headlines, pitches,
 and it calls `tools/redact.py`) → `tools/corrections.py` → `tools/encrypt.py`
 across every dataset in `tools/datasets.py` → commit → push.
 

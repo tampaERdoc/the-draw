@@ -51,6 +51,8 @@ def main():
         sys.exit('usage: python3 tools/deploy.py "what changed"')
 
     print('1/4 line-ups');   run(sys.executable, 'tools/members.py')
+    run(sys.executable, 'tools/discogs_members.py')
+    run(sys.executable, 'tools/instruments.py', stdout=subprocess.DEVNULL)
     print('2/4 copy + redactions'); run(sys.executable, 'tools/copy.py')
     run(sys.executable, 'tools/corrections.py')
     check_redactions()

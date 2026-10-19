@@ -697,6 +697,10 @@ BANDS.forEach(b=>{
   b.genreTags = String(b.genre||'').split('/').map(s=>s.replace(/\(.*?\)/g,'').trim()).filter(Boolean);
   b.onWatchlist = !!b.watchlist;
   b.earnConf = b.earnings_confidence || 'Not in earnings workbook';
+  // "drummers" has to find a band whose line-up contains a drummer, so the instruments
+  // and the words people actually type for them both go into the searchable text.
+  b._instruments = (b.instruments||[]).concat(
+    (b.members||[]).map(m=>m.instrument).filter(Boolean)).join(' ');
   b._all = Object.entries(b).filter(([k])=>!k.startsWith('_'))
     .map(([k,v])=>Array.isArray(v)
       ? v.map(x=>(x&&typeof x==='object')?(x.name||''):x).join(' ')
@@ -952,10 +956,29 @@ const FIELDS = [
  ['earnings_confidence','Earnings confidence'],['earnings_members','Earnings — members listed'],['watchlist','Watchlist'],
  ['entity_type','Record type'],['genre_source','Genre source'],['spotify_verification','Spotify match check'],
  ['plays_2026_text','Plays in 2026'],['grade_basis','How the grade was reached'],['predicted_set_time','Predicted set time'],
- ['member_names','Band member']
+ ['member_names','Band member'],['_instruments','Instrument played']
 ];
 $('#field').innerHTML = FIELDS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
 const uniq = (arr)=>[...new Set(arr)].sort((a,b)=>a.localeCompare(b));
+// Nobody types "Drums" when they mean a person. They type "drummers".
+const PLAYER_WORDS=[
+  [/^(drummers?|drums|percussionists?\b)/,'Drums'],
+  [/^(guitarists?|guitars?|guitar players?|shredders?)/,'Guitar'],
+  [/^(bassists?|bass|bass players?|bass guitarists?)/,'Bass'],
+  [/^(singers?|vocalists?|vocals|frontmen|frontwomen|frontpersons?|screamers?)/,'Vocals'],
+  [/^(keyboardists?|keys|keyboards?|pianists?|organists?)/,'Keys'],
+  [/^(synth players?|synths?)/,'Synth'],
+  [/^(horn players?|saxophonists?|sax|saxes|trumpeters?|trombonists?|brass|horns)/,'Horns'],
+  [/^(violinists?|cellists?|fiddlers?|strings)/,'Strings'],
+  [/^(djs?|turntablists?)/,'Turntables'],
+  [/^(banjo players?|banjos?)/,'Banjo'],
+  [/^(harmonica players?|harmonicas?)/,'Harmonica'],
+];
+const instrumentFor=q=>{
+  const t=String(q||'').trim().toLowerCase();
+  for(const [re,name] of PLAYER_WORDS) if(re.test(t)) return name;
+  return '';
+};
 const FILTERS = [
  ...(MULTI?[{id:'fFest',label:'Tracked on list',opts:uniq(BANDS.flatMap(b=>b.festivals_src||[b.festival||''])),
     test:(b,v)=>(b.festivals_src||[b.festival]).includes(v)}]:[]),
@@ -969,6 +992,9 @@ const FILTERS = [
  {id:'fAgency',label:'Booking agency',opts:uniq(BANDS.flatMap(b=>b.agencyFamily)),test:(b,v)=>b.agencyFamily.includes(v)},
  {id:'fEvidence',label:'Booking evidence',opts:uniq(BANDS.map(b=>b.booking_evidence)),test:(b,v)=>b.booking_evidence===v},
  {id:'fLabel',label:'Record label',opts:uniq(BANDS.map(b=>b.labelFamily)),test:(b,v)=>b.labelFamily===v},
+ {id:'fInstrument',label:'Instrument in the band',
+   opts:uniq(BANDS.flatMap(b=>b.instruments||[])),
+   test:(b,v)=>(b.instruments||[]).includes(v)},
  {id:'fStatus',label:'Lineup status',opts:uniq(BANDS.map(b=>b.status)),test:(b,v)=>b.status===v},
  {id:'fFlags',label:'Flags',opts:['Has flags','No flags'],test:(b,v)=>v==='Has flags'?!!b.flags:!b.flags},
  {id:'fEarn',label:'Earnings confidence',opts:['Modeled - est.','Modeled - low conf.','Cohort position','Not in earnings workbook'],test:(b,v)=>b.earnConf===v},
@@ -1068,7 +1094,11 @@ function numVal(id){const v=$('#'+id).value; return v===''?null:Number(v);}
 function currentList(){
   const field=$('#field').value, q=$('#q').value.trim().toLowerCase();
   let list = BANDS.filter(b=>{
-    if(q){ const hay = field==='_all'?b._all:String(b[field]||'').toLowerCase(); if(!q.split(/\s+/).every(t=>hay.includes(t))) return false; }
+    if(q){
+      const inst = (field==='_all'||field==='_instruments') ? instrumentFor(q) : '';
+      if(inst){ if(!(b.instruments||[]).includes(inst)) return false; }
+      else { const hay = field==='_all'?b._all:String(b[field]||'').toLowerCase();
+             if(!q.split(/\s+/).every(t=>hay.includes(t))) return false; } }
     for(const f of FILTERS){const el=$('#'+f.id), v=el.value.trim(); if(!v) continue;
       if(el.tagName==='INPUT'){ const exact=f.opts.includes(v);
         if(exact){ if(!f.test(b,v)) return false; }
@@ -1404,6 +1434,27 @@ function parseAsk(text){ personNote=null;
   for(const g of GENRES.slice().sort((a,b)=>b.length-a.length)){const gl=g.toLowerCase(); if(new RegExp('(^|[^\\w-])'+gl.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^\\w-]|$)').test(t)){gq.push(g); t=t.replace(gl,' ');}}
   if(/\bheavy\b/.test(t)){['Metalcore','Deathcore','Hardcore','Melodic hardcore','Nu-metal','Alt-metal','Progressive metal','Southern metal'].forEach(g=>GENRES.includes(g)&&gq.push(g));eat(/\bheavy\b/g);}
   if(gq.length){tests.push(b=>b.genreTags.some(x=>gq.includes(x)));notes.push('genre: '+gq.join(' or '));}
+  // instruments: "drummers in A+ bands", "guitarists on 4AD"
+  {
+    const words=[['drummers?|drums','Drums'],['guitarists?|guitars?','Guitar'],
+      ['bassists?|bass players?|bass guitarists?|\\bbass\\b','Bass'],
+      ['singers?|vocalists?|frontmen|frontwomen|frontpersons?|\\bvocals\\b','Vocals'],
+      ['keyboardists?|pianists?|organists?|\\bkeys\\b','Keys'],
+      ['synth players?|\\bsynths?\\b','Synth'],
+      ['horn players?|saxophonists?|\\bsax\\b|trumpeters?|trombonists?|\\bbrass\\b|\\bhorns\\b','Horns'],
+      ['violinists?|cellists?|fiddlers?|\\bstrings\\b','Strings'],
+      ['turntablists?|\\bdjs\\b','Turntables'],
+      ['percussionists?','Percussion']];
+    for(const [pat,name] of words){
+      const re=new RegExp('\\b(?:'+pat+')\\b','i');
+      if(re.test(t)){
+        tests.push(b=>(b.instruments||[]).includes(name));
+        notes.push('line-up includes '+name.toLowerCase());
+        t=t.replace(new RegExp('\\b(?:'+pat+')\\b','gi'),' ');
+        break;
+      }
+    }
+  }
   // a band member's name
   {
     const pq=t.replace(/\b(who|plays?|played|member|members|band|bands|lineup|line-?up|in|with|is|are|of|the|for|guitar|bass|drums|vocals|sings?|singer|drummer|guitarist|bassist)\b/g,' ').replace(/\s+/g,' ').trim();

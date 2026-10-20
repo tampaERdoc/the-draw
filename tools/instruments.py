@@ -30,6 +30,11 @@ CANON = [
     # Bass must be tested BEFORE guitar: "bass guitar" contains "guitar", and testing
     # guitar first filed 557 bassists as guitarists.
     ('Bass',        r'bass(?! drum)|contrabass|double bass|upright bass'),
+    # Steel guitar before guitar for the same reason as bass: "steel guitar" contains
+    # "guitar", so the other order filed every steel player as a plain guitarist.
+    # "Pedal Steel" and "Lap Steel" also arrive from Discogs credits with no "guitar"
+    # after them, and requiring the word dropped those people to no instrument at all.
+    ('Steel guitar',r'(pedal|lap)[ -]?steel|steel guitar|dobro'),
     ('Guitar',      r'(^|\b)(electric |acoustic |rhythm |lead |slide |12.string |baritone )?guitar'),
     ('Drums',       r'drum|membranophone|percussion set|kit'),
     ('Percussion',  r'percussion|idiophone|tambourine|conga|bongo|timbale|vibraphone|marimba|cowbell'),
@@ -45,7 +50,6 @@ CANON = [
     ('Mandolin',    r'mandolin'),
     ('Ukulele',     r'ukulele'),
     ('Accordion',   r'accordion|melodeon'),
-    ('Steel guitar',r'(pedal |lap )?steel guitar|dobro'),
 ]
 # When someone plays several, this is the order of what they are known for. A singing
 # drummer is a drummer; a drummer who also sings backing vocals is still a drummer.

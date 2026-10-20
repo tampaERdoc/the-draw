@@ -668,7 +668,7 @@ async function unlock(pw){
 // recently keeps showing yesterday's build and the change looks like it never shipped.
 // Ask the server what the current build is, bypassing the cache, and reload once if we
 // are behind. Guarded so a stale CDN edge can never put us in a reload loop.
-const BUILD='20261019-214118';
+const BUILD='20261019-220126';
 async function checkBuild(){
   try{
     const r=await fetch('build.txt?t='+Date.now(),{cache:'no-store'});
@@ -998,23 +998,37 @@ const FIELDS = [
 $('#field').innerHTML = FIELDS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
 const uniq = (arr)=>[...new Set(arr)].sort((a,b)=>a.localeCompare(b));
 // Nobody types "Drums" when they mean a person. They type "drummers".
+// Each search word covers one or more of the buckets instruments.py files people into,
+// because the two vocabularies are not the same shape: it buckets to Keys, Horns,
+// Strings and Woodwind, while someone searching types "pianists" or "saxophonists".
+// Every bucket in instruments.py's RANK list must appear on the right here, or the
+// people in it are unreachable from the search box - which is how percussionists went
+// missing, filed as Percussion while "percussionists" looked for Drums.
 const PLAYER_WORDS=[
-  [/^(drummers?|drums|percussionists?\b)/,'Drums'],
-  [/^(guitarists?|guitars?|guitar players?|shredders?)/,'Guitar'],
-  [/^(bassists?|bass|bass players?|bass guitarists?)/,'Bass'],
-  [/^(singers?|vocalists?|vocals|frontmen|frontwomen|frontpersons?|screamers?)/,'Vocals'],
-  [/^(keyboardists?|keys|keyboards?|pianists?|organists?)/,'Keys'],
-  [/^(synth players?|synths?)/,'Synth'],
-  [/^(horn players?|saxophonists?|sax|saxes|trumpeters?|trombonists?|brass|horns)/,'Horns'],
-  [/^(violinists?|cellists?|fiddlers?|strings)/,'Strings'],
-  [/^(djs?|turntablists?)/,'Turntables'],
-  [/^(banjo players?|banjos?)/,'Banjo'],
-  [/^(harmonica players?|harmonicas?)/,'Harmonica'],
+  [/^(drummers?|drums)/,                                                    ['Drums','Percussion'],  'drummers'],
+  [/^(percussionists?|percussion)/,                                         ['Percussion','Drums'],  'percussionists'],
+  [/^(guitarists?|guitars?|guitar players?|shredders?)/,                    ['Guitar'],              'guitarists'],
+  [/^(bassists?|bass|bass players?|bass guitarists?)/,                      ['Bass'],                'bassists'],
+  [/^(singers?|vocalists?|vocals|frontmen|frontwomen|frontpersons?|screamers?)/, ['Vocals'],          'singers'],
+  [/^(keyboardists?|keys|keyboards?|pianists?|organists?|piano players?)/,  ['Keys'],                'keyboard players'],
+  [/^(synth players?|synths?)/,                                             ['Synth'],               'synth players'],
+  [/^(horn players?|saxophonists?|sax|saxes|trumpeters?|trombonists?|brass|horns)/, ['Horns'],        'horn players'],
+  [/^(violinists?|cellists?|fiddlers?|strings|string players?)/,            ['Strings'],             'string players'],
+  [/^(flutists?|flautists?|clarinettists?|clarinetists?|woodwinds?)/,       ['Woodwind'],            'woodwind players'],
+  [/^(pedal steel|lap steel|steel players?|steel guitarists?|dobro)/,       ['Steel guitar'],        'steel players'],
+  [/^(djs?|turntablists?|turntables)/,                                      ['Turntables'],          'DJs'],
+  [/^(banjo players?|banjos?|banjoists?)/,                                  ['Banjo'],               'banjo players'],
+  [/^(mandolin players?|mandolins?|mandolinists?)/,                         ['Mandolin'],            'mandolin players'],
+  [/^(accordion players?|accordions?|accordionists?)/,                      ['Accordion'],           'accordion players'],
+  [/^(harmonica players?|harmonicas?|harpists?)/,                           ['Harmonica'],           'harmonica players'],
+  [/^(ukulele players?|ukuleles?|uke players?)/,                            ['Ukulele'],             'ukulele players'],
+  [/^(programmers?|programming|sampler players?)/,                          ['Programming'],         'programmers'],
 ];
+// null when the query is not asking for players at all, so callers test one thing
 const instrumentFor=q=>{
   const t=String(q||'').trim().toLowerCase();
-  for(const [re,name] of PLAYER_WORDS) if(re.test(t)) return name;
-  return '';
+  for(const [re,insts,word] of PLAYER_WORDS) if(re.test(t)) return {insts,word};
+  return null;
 };
 const FILTERS = [
  ...(MULTI?[{id:'fFest',label:'Tracked on list',opts:uniq(BANDS.flatMap(b=>b.festivals_src||[b.festival||''])),
@@ -1132,8 +1146,8 @@ function currentList(){
   const field=$('#field').value, q=$('#q').value.trim().toLowerCase();
   let list = BANDS.filter(b=>{
     if(q){
-      const inst = (field==='_all'||field==='_instruments') ? instrumentFor(q) : '';
-      if(inst){ if(!(b.instruments||[]).includes(inst)) return false; }
+      const inst = (field==='_all'||field==='_instruments') ? instrumentFor(q) : null;
+      if(inst){ if(!inst.insts.some(i=>(b.instruments||[]).includes(i))) return false; }
       else { const hay = field==='_all'?b._all:String(b[field]||'').toLowerCase();
              if(!q.split(/\s+/).every(t=>hay.includes(t))) return false; } }
     for(const f of FILTERS){const el=$('#'+f.id), v=el.value.trim(); if(!v) continue;
@@ -1190,12 +1204,13 @@ const GRADE_RANK={'A+':0,'A':1,'A-':2,'B':3,'C':4,'D':5};
 // "drummers" is a question about people, not bands. Answer it with the drummers,
 // drawn only from the bands the current filters leave standing, so it composes with
 // everything else: drummers + grade A+, or guitarists + label 4AD.
-function playersIn(list, inst){
+function playersIn(list, insts){
   const out=new Map();
   list.forEach(b=>(b.members||[]).forEach(m=>{
-    if(m.instrument!==inst) return;
+    if(!insts.includes(m.instrument)) return;
     const k=pkey(m.name); if(!k) return;
-    if(!out.has(k)) out.set(k,{name:m.name,instrument:inst,bands:[]});
+    // keep what the person actually plays, not the word that was searched for
+    if(!out.has(k)) out.set(k,{name:m.name,instrument:m.instrument,bands:[]});
     out.get(k).bands.push({band:b.name,grade:b.grade||'',idx:b.size_vs_sincere_engineer});
   }));
   const rows=[...out.values()];
@@ -1252,17 +1267,15 @@ function peopleDoc(){
 function renderPeopleStrip(list){
   const strip=$('#pplstrip'); if(!strip) return;
   const q=$('#q').value.trim(), field=$('#field').value;
-  const inst=(field==='_all'||field==='_instruments') ? instrumentFor(q) : '';
+  const inst=(field==='_all'||field==='_instruments') ? instrumentFor(q) : null;
 
   if(inst){
-    const rows=playersIn(list||BANDS, inst);
+    const rows=playersIn(list||BANDS, inst.insts);
     strip.hidden = rows.length===0;
     $('#pplExp').hidden = rows.length===0;
     PPL_ROWS=rows;
     if(!rows.length) return;
-    const word={Drums:'drummers',Guitar:'guitarists',Bass:'bassists',Vocals:'singers',
-      Keys:'keyboard players',Synth:'synth players',Horns:'horn players',Strings:'string players',
-      Percussion:'percussionists',Turntables:'DJs'}[inst]||(inst.toLowerCase()+' players');
+    const word=inst.word;
     PPL_LABEL = word.charAt(0).toUpperCase()+word.slice(1)+' in The Draw';
     $('#pplHead').textContent = `${fmt(rows.length)} ${word} in the ${fmt((list||BANDS).length)} bands shown`
       + (rows.length>PPL_CAP?` \u2014 best ${PPL_CAP} first`:'');

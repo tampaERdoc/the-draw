@@ -62,6 +62,18 @@ def main():
         run(sys.executable, 'tools/encrypt.py', fid, PASSWORD, stdout=subprocess.DEVNULL)
         print('    ', fid)
 
+    # stamp the build so a cached browser can tell it is behind and reload itself
+    import time as _t
+    build = _t.strftime('%Y%m%d-%H%M%S')
+    with open(os.path.join(ROOT, 'build.txt'), 'w') as f:
+        f.write(build + '\n')
+    idx = os.path.join(ROOT, 'index.html')
+    html = open(idx, encoding='utf-8').read()
+    import re as _re
+    html = _re.sub(r"const BUILD='[^']*'", "const BUILD='%s'" % build, html, count=1)
+    open(idx, 'w', encoding='utf-8').write(html)
+    print('     build', build)
+
     if not os.path.exists(os.path.join(ROOT, 'CNAME')):
         sys.exit('REFUSING TO PUSH: CNAME is missing — the custom domain would break.')
 

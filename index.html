@@ -664,7 +664,24 @@ async function unlock(pw){
   window.addEventListener('hashchange',()=>{const h=(location.hash||'').slice(1); if(h!==cur) location.reload();});
   start(D, EVERYTHING.bands);
 }
+// GitHub Pages serves this page with a ten-minute cache, so a browser that loaded it
+// recently keeps showing yesterday's build and the change looks like it never shipped.
+// Ask the server what the current build is, bypassing the cache, and reload once if we
+// are behind. Guarded so a stale CDN edge can never put us in a reload loop.
+const BUILD='20261019-214118';
+async function checkBuild(){
+  try{
+    const r=await fetch('build.txt?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok) return;
+    const live=(await r.text()).trim();
+    if(live && live!==BUILD && ssGet('fs-reloaded')!==live){
+      ssSet('fs-reloaded',live);
+      location.reload();
+    }
+  }catch(e){}
+}
 (async function(){
+  checkBuild();
   await Promise.all(FEST_REGISTRY.map(f=>loadScript('data/'+f.id+'.enc.js')));
   const err=document.getElementById('lockErr'), btn=document.getElementById('unlockBtn');
   if(!window.crypto||!crypto.subtle){err.textContent='This browser can\u2019t open the page. Use the https:// link in a current browser.';return;}

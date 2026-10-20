@@ -89,6 +89,33 @@ In order of what has already been tried for the 3,018 bands:
   a ~3KB bot-challenge interstitial, not the page. Do not build another scraper for it
   and do not try to defeat the challenge; WebFetch reaches those pages instead.
 
+### Harvesting a festival's own artist pages
+
+`fest2/harvest_bios.py` walks every artist page a festival publishes and
+`fest2/bios.py` reads names and instruments out of the prose. Festival sites answer
+plain curl, so this costs no search budget. Two loaders consume it: `bios_to_hand.py`
+writes line-ups for bands that have none, and `tools/bio_instruments.py` fills blank
+instruments on line-ups that already exist.
+
+Measured yield, and the trap:
+
+| site | pages | line-ups | in our dataset |
+|---|---|---|---|
+| Hopscotch | 100 | 32 | 99% |
+| Fest | 329 | 62 | 87% |
+| Treefort | 188 | 51 | **11%** |
+
+**Always check the overlap before trusting a yield.** Treefort's `/lineup/` serves the
+NEXT festival, and its performer pages are replaced each year rather than archived, so
+a 2026 act is a 404 and there is no archive to crawl. Harvesting it looked like 51
+line-ups and was really about 7. Hopscotch and Fest keep their pages up and match
+almost exactly.
+
+Of the other sites in `datasets.py`, Sled Island, Levitation, Bumbershoot, Shaky Knees
+and Riot Fest all answer curl but publish no per-artist bio pages - they are Shopify or
+Next.js storefronts, or they key pages by event rather than artist. Bandcamp answers
+with a bot challenge. Not worth another attempt at any of them.
+
 Any normalizer that maps a role to an instrument must test **Bass before Guitar**.
 "bass guitar" contains "guitar", and the other order silently filed 557 bassists as
 guitarists.

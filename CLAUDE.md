@@ -81,10 +81,15 @@ In order of what has already been tried for the 3,018 bands:
   exhausted; re-running it reports nothing left to try. Its artist endpoint gives names
   only, so 97% of those people arrived with no instrument. `dg_credits.py` fills them
   from release `extraartists` roles, which is the one place Discogs keeps instruments.
-- **Hand research** via WebSearch and WebFetch, in `work/hand/result_*.json`, globbed by
-  `tools/hand_members.py`. Roughly a 50% hit rate on bands both databases missed. The
-  binding constraint is the per-turn web-search budget, not the method, which is why
-  this runs as parallel agents over the slices in `work/ung/`.
+- **Hand research** via WebSearch and WebFetch, in `work/hand/result_*.json`, globbed
+  by `tools/hand_members.py`. Roughly a 50% hit rate on bands both databases missed,
+  over the slices in `work/ung/`.
+
+  **Run one slice per turn, not several in parallel.** The web-search budget is 200
+  calls *per turn, shared by every agent in that turn*, not per agent. Six agents
+  dispatched together starved each other: the first two did real work and the last
+  managed ten bands before the budget was gone. The budget, not the method, is the
+  binding constraint, so parallelism buys nothing here and costs coverage.
 - **Bandcamp scraping is a dead end.** It answers plain `curl` from this container with
   a ~3KB bot-challenge interstitial, not the page. Do not build another scraper for it
   and do not try to defeat the challenge; WebFetch reaches those pages instead.

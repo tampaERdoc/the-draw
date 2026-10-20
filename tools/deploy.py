@@ -64,6 +64,20 @@ def main():
         run(sys.executable, 'tools/encrypt.py', fid, PASSWORD, stdout=subprocess.DEVNULL)
         print('    ', fid)
 
+    # The remote keeps reverting to the pre-rename name after a container restart, and
+    # pushes still succeed because GitHub redirects renamed repos - so it goes unnoticed
+    # until someone creates a repo at the old name and the redirect stops. Fix it here
+    # rather than in a note nobody reads.
+    want = 'https://github.com/tampaERdoc/the-draw.git'
+    try:
+        have = subprocess.run(['git', '-C', ROOT, 'remote', 'get-url', 'origin'],
+                              capture_output=True, text=True).stdout.strip()
+        if have and have.rstrip('/') != want.rstrip('/'):
+            subprocess.run(['git', '-C', ROOT, 'remote', 'set-url', 'origin', want], check=True)
+            print('     remote was %s, reset to the-draw' % have)
+    except Exception as e:
+        print('     could not check the git remote:', e)
+
     # stamp the build so a cached browser can tell it is behind and reload itself
     import time as _t
     build = _t.strftime('%Y%m%d-%H%M%S')

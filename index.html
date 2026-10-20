@@ -238,6 +238,10 @@ section > h2 .of{font-weight:400;color:var(--faint);font-size:15px}
 .pplstrip[hidden]{display:none!important}
 .pplstrip h4{margin:0;font:600 13px "Instrument Sans",sans-serif;color:var(--muted)}
 .pplhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 9px}
+.pplex{font:inherit;font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:.35rem;cursor:pointer;white-space:nowrap}
+.pplex input{margin:0}
+.who.former,.pname .exmark{opacity:.7}
+.exmark{font-size:.75em;color:var(--muted);margin-left:.3rem}
 .pplexp{display:flex;gap:6px;margin-left:auto}
 .pplexp[hidden]{display:none}
 .pplexp button{appearance:none;background:var(--panel);border:1px solid var(--rule);border-radius:7px;
@@ -494,6 +498,7 @@ footer b{color:var(--muted)}
     </div>
     <div class="pplstrip" id="pplstrip" hidden>
       <div class="pplhead"><h4 id="pplHead"></h4>
+        <label class="pplex" id="pplExWrap" hidden><input type="checkbox" id="pplEx"> include former members</label>
         <div class="pplexp" id="pplExp" hidden>
           <button id="pexXlsx" type="button">Excel</button>
           <button id="pexDoc" type="button">Word</button>
@@ -668,7 +673,7 @@ async function unlock(pw){
 // recently keeps showing yesterday's build and the change looks like it never shipped.
 // Ask the server what the current build is, bypassing the cache, and reload once if we
 // are behind. Guarded so a stale CDN edge can never put us in a reload loop.
-const BUILD='20261019-234948';
+const BUILD='20261020-064428';
 async function checkBuild(){
   try{
     const r=await fetch('build.txt?t='+Date.now(),{cache:'no-store'});
@@ -1006,7 +1011,9 @@ const uniq = (arr)=>[...new Set(arr)].sort((a,b)=>a.localeCompare(b));
 // missing, filed as Percussion while "percussionists" looked for Drums.
 const PLAYER_WORDS=[
   [/^(drummers?|drums)/,                                                    ['Drums','Percussion'],  'drummers'],
-  [/^(percussionists?|percussion)/,                                         ['Percussion','Drums'],  'percussionists'],
+  // "drummers" includes percussionists, but not the reverse: someone asking for
+  // percussionists wants the 55 percussionists, not 711 drummers led by a drummer.
+  [/^(percussionists?|percussion)/,                                         ['Percussion'],          'percussionists'],
   [/^(guitarists?|guitars?|guitar players?|shredders?)/,                    ['Guitar'],              'guitarists'],
   [/^(bassists?|bass|bass players?|bass guitarists?)/,                      ['Bass'],                'bassists'],
   [/^(singers?|vocalists?|vocals|frontmen|frontwomen|frontpersons?|screamers?)/, ['Vocals'],          'singers'],
@@ -1204,14 +1211,21 @@ const GRADE_RANK={'A+':0,'A':1,'A-':2,'B':3,'C':4,'D':5};
 // "drummers" is a question about people, not bands. Answer it with the drummers,
 // drawn only from the bands the current filters leave standing, so it composes with
 // everything else: drummers + grade A+, or guitarists + label 4AD.
-function playersIn(list, insts){
+// Former members default OUT. 36% of the people carrying an instrument have left the
+// band - 42% of the drummers, and one of them left in 1988 - and a scouting list that
+// hands you an ex-drummer looking exactly like the current one is worse than no answer.
+// The band detail view already separated current from former; this did not.
+function playersIn(list, insts, exes){
   const out=new Map();
   list.forEach(b=>(b.members||[]).forEach(m=>{
     if(!insts.includes(m.instrument)) return;
+    const former = m.current===false;
+    if(former && !exes) return;
     const k=pkey(m.name); if(!k) return;
     // keep what the person actually plays, not the word that was searched for
     if(!out.has(k)) out.set(k,{name:m.name,instrument:m.instrument,bands:[]});
-    out.get(k).bands.push({band:b.name,grade:b.grade||'',idx:b.size_vs_sincere_engineer});
+    out.get(k).bands.push({band:b.name,grade:b.grade||'',idx:b.size_vs_sincere_engineer,
+                           former:former,end:m.end||''});
   }));
   const rows=[...out.values()];
   rows.forEach(p=>p.bands.sort((a,b)=>(GRADE_RANK[a.grade]??9)-(GRADE_RANK[b.grade]??9)));
@@ -1230,6 +1244,8 @@ const PEOPLE_COLS=[
  ['Person',        r=>r.p.name],
  ['Instrument',    r=>r.p.instrument],
  ['Band',          r=>r.b.band],
+ ['Still in the band', r=>r.b.former?'no':'yes'],
+ ['Left',           r=>r.b.former?(r.b.end||'date unknown'):''],
  ['Grade',         r=>r.b.grade||''],
  ['Size vs Sincere Engineer', r=>r.b.idx!=null?r.b.idx:''],
  ['Other bands',   r=>r.p.bands.slice(1).map(x=>x.band).join(' / ')],
@@ -1270,7 +1286,11 @@ function renderPeopleStrip(list){
   const inst=(field==='_all'||field==='_instruments') ? instrumentFor(q) : null;
 
   if(inst){
-    const rows=playersIn(list||BANDS, inst.insts);
+    const exes = !!($('#pplEx')&&$('#pplEx').checked);
+    const rows=playersIn(list||BANDS, inst.insts, exes);
+    const allRows=exes?rows:playersIn(list||BANDS, inst.insts, true);
+    const hidden=Math.max(0, allRows.length-rows.length);
+    $('#pplExWrap').hidden = allRows.length===0;
     strip.hidden = rows.length===0;
     $('#pplExp').hidden = rows.length===0;
     PPL_ROWS=rows;
@@ -1278,6 +1298,7 @@ function renderPeopleStrip(list){
     const word=inst.word;
     PPL_LABEL = word.charAt(0).toUpperCase()+word.slice(1)+' in The Draw';
     $('#pplHead').textContent = `${fmt(rows.length)} ${word} in the ${fmt((list||BANDS).length)} bands shown`
+      + (exes?' including former members':(hidden?` \u2014 ${fmt(hidden)} former hidden`:''))
       + (rows.length>PPL_CAP?` \u2014 best ${PPL_CAP} first`:'');
     $('#pplRow').className='pbands';
     $('#pplRow').innerHTML = rows.slice(0,PPL_CAP).map(p=>{
@@ -1285,7 +1306,7 @@ function renderPeopleStrip(list){
       const more=p.bands.length>1?` <span class="meta">+${p.bands.length-1} more</span>`:'';
       return `<button class="pband" type="button" data-person="${esc(p.name)}">
         ${b.grade?`<span class="grade ${gcls(b.grade)}">${esc(b.grade)}</span>`:'<span class="grade g-none">\u2014</span>'}
-        <span><b>${esc(p.name)}</b> <span class="meta">${esc(inst.toLowerCase())}</span><span class="meta" style="display:block">${esc(b.band)}${more}</span></span>
+        <span><b>${esc(p.name)}</b> <span class="meta">${esc((p.instrument||'').toLowerCase())}</span>${b.former?`<span class="exmark">former${b.end?' \u2014 left '+esc(b.end):''}</span>`:''}<span class="meta" style="display:block">${esc(b.band)}${more}</span></span>
         <span class="sp"></span>
         <span class="idx">${b.idx!=null?b.idx.toFixed(2)+'\u00d7':''}</span>
       </button>`;}).join('');
@@ -1329,6 +1350,7 @@ $('#tbl tbody').addEventListener('click',e=>{
   if(e.target.closest('.pick')) return;
   const tr=e.target.closest('tr[data-name]'); if(tr) openDetail(tr.dataset.name);});
 document.addEventListener('change',e=>{
+  if(e.target.id==='pplEx'){ renderPeopleStrip(currentList()); return; }
   const cb=e.target.closest('input[data-pick]'); if(!cb) return;
   const nm=cb.dataset.pick;
   if(cb.checked) SEL.add(nm); else SEL.delete(nm);

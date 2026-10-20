@@ -61,6 +61,8 @@ The hero is an instrument, not a picture. Drag anywhere on it to set a floor and
 Setting a floor widens the grade chip to All, since A+ bands cluster near 1.00× and dragging right would otherwise empty the grid; the chips still narrow from there. **Use in the filters below** pushes the floor into the matching slider and jumps to the full table. Arrow keys move the handle when it has focus, Shift for bigger steps, Escape to clear.
 
 ## Building an export
+The people panel exports on its own terms: search **drummers** and the panel's own Excel, Word, CSV and Copy buttons take **every** person it found, not the 80 shown on screen. One row per person per band, carrying the band's grade, size index, label, booking agency and audience figures — enough to work a list from without opening anything else. Narrow with the filters first and the export narrows with you.
+
 Tick bands on the cards or in the table. The tick travels with the band, so a selection survives switching lists and filtering; the bar at the foot of the table says how many of the picked bands are currently hidden by filters. **Select these N** takes everything the current filters show.
 
 | Button | What you get |

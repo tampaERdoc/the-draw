@@ -236,7 +236,14 @@ section > h2 .of{font-weight:400;color:var(--faint);font-size:15px}
 .who.former small::before{content:"former \00b7 "}
 .pplstrip{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px 14px;margin:14px 0 0}
 .pplstrip[hidden]{display:none!important}
-.pplstrip h4{margin:0 0 9px;font:600 13px "Instrument Sans",sans-serif;color:var(--muted)}
+.pplstrip h4{margin:0;font:600 13px "Instrument Sans",sans-serif;color:var(--muted)}
+.pplhead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 9px}
+.pplexp{display:flex;gap:6px;margin-left:auto}
+.pplexp[hidden]{display:none}
+.pplexp button{appearance:none;background:var(--panel);border:1px solid var(--rule);border-radius:7px;
+  cursor:pointer;font:500 12.5px "Instrument Sans",sans-serif;color:var(--ink);padding:5px 10px}
+.pplexp button:hover{background:var(--sunk);border-color:var(--datum);color:var(--datum)}
+.pplexp button:disabled{opacity:.5;cursor:default}
 .pplstrip .row{display:flex;flex-wrap:wrap;gap:7px}
 .pplstrip .pbands{max-height:420px;overflow-y:auto}
 .pplstrip .pband{padding:9px 10px}
@@ -485,7 +492,17 @@ footer b{color:var(--muted)}
       <div class="sliders" id="sliders"></div>
       <div class="filters" id="filters"></div>
     </div>
-    <div class="pplstrip" id="pplstrip" hidden><h4 id="pplHead"></h4><div class="row" id="pplRow"></div></div>
+    <div class="pplstrip" id="pplstrip" hidden>
+      <div class="pplhead"><h4 id="pplHead"></h4>
+        <div class="pplexp" id="pplExp" hidden>
+          <button id="pexXlsx" type="button">Excel</button>
+          <button id="pexDoc" type="button">Word</button>
+          <button id="pexCsv" type="button">CSV</button>
+          <button id="pexCopy" type="button">Copy</button>
+        </div>
+      </div>
+      <div class="row" id="pplRow"></div>
+    </div>
     <div class="resultbar">
       <div class="count" id="count"> <button class="pickall" id="pickShown" type="button"></button><button class="pickall" id="pickNone" type="button" hidden>Clear selection</button></div>
       <div class="hint">Click a column heading to sort, or a row for the full record</div>
@@ -1176,6 +1193,45 @@ function playersIn(list, inst){
   return rows;
 }
 const PPL_CAP=80;
+let PPL_ROWS=[], PPL_LABEL='people';     // everything the panel found, not just the 80 drawn
+const PEOPLE_COLS=[
+ ['Person',        r=>r.p.name],
+ ['Instrument',    r=>r.p.instrument],
+ ['Band',          r=>r.b.band],
+ ['Grade',         r=>r.b.grade||''],
+ ['Size vs Sincere Engineer', r=>r.b.idx!=null?r.b.idx:''],
+ ['Other bands',   r=>r.p.bands.slice(1).map(x=>x.band).join(' / ')],
+ ['Plays in 2026', r=>(bandByName(r.b.band)||{}).plays_2026_text||''],
+ ['Genre',         r=>(bandByName(r.b.band)||{}).genre||''],
+ ['Hometown',      r=>(bandByName(r.b.band)||{}).hometown||''],
+ ['Instagram followers', r=>(bandByName(r.b.band)||{}).instagram_followers??''],
+ ['Spotify monthly listeners', r=>(bandByName(r.b.band)||{}).spotify_listeners??''],
+ ['Record label',  r=>{const v=(bandByName(r.b.band)||{}).label||'';return /^Not /.test(v)?'':v;}],
+ ['Booking agency',r=>{const v=(bandByName(r.b.band)||{}).agency||'';return /^Not /.test(v)?'':v;}],
+ ['Line-up source',r=>(bandByName(r.b.band)||{}).member_source||''],
+];
+const BY_NAME=new Map(BANDS.map(b=>[b.name,b]));
+const bandByName=n=>BY_NAME.get(n);
+// one row per person per band, so a drummer in two bands exports twice - which is what
+// you want when the row is the thing you act on
+const peopleRows=()=>[PEOPLE_COLS.map(c=>c[0])].concat(
+  PPL_ROWS.flatMap(p=>p.bands.map(b=>PEOPLE_COLS.map(c=>c[1]({p,b})))));
+function peopleDoc(){
+  const e=v=>String(v==null?'':v).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const body=PPL_ROWS.map(p=>`<div style="margin:0 0 9pt">
+    <p style="margin:0"><b style="font-size:12pt">${e(p.name)}</b>
+      <span style="color:#5e6975"> &mdash; ${e(p.instrument.toLowerCase())}</span></p>
+    ${p.bands.map(b=>{const bb=bandByName(b.band)||{};
+      return `<p style="margin:0 0 1pt 14pt">${e(b.band)}${b.grade?` <span style="color:#0d6a73">[${e(b.grade)}]</span>`:''}`
+        +`<span style="color:#5e6975">${b.idx!=null?' &middot; '+b.idx.toFixed(2)+'\u00d7':''}`
+        +`${bb.label&&!/^Not /.test(bb.label)?' &middot; '+e(bb.label):''}</span></p>`;}).join('')}
+  </div>`).join('');
+  return `<!doctype html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>${e(PPL_LABEL)}</title></head>
+    <body style="font:11pt Calibri,sans-serif;color:#171b20">
+    <h1 style="font:bold 18pt Calibri,sans-serif;margin:0 0 2pt">${e(PPL_LABEL)}</h1>
+    <p style="margin:0 0 14pt;color:#5e6975">${PPL_ROWS.length} people &middot; from The Draw, ${stamp()}</p>
+    ${body}</body></html>`;
+}
 function renderPeopleStrip(list){
   const strip=$('#pplstrip'); if(!strip) return;
   const q=$('#q').value.trim(), field=$('#field').value;
@@ -1184,10 +1240,13 @@ function renderPeopleStrip(list){
   if(inst){
     const rows=playersIn(list||BANDS, inst);
     strip.hidden = rows.length===0;
+    $('#pplExp').hidden = rows.length===0;
+    PPL_ROWS=rows;
     if(!rows.length) return;
     const word={Drums:'drummers',Guitar:'guitarists',Bass:'bassists',Vocals:'singers',
       Keys:'keyboard players',Synth:'synth players',Horns:'horn players',Strings:'string players',
       Percussion:'percussionists',Turntables:'DJs'}[inst]||(inst.toLowerCase()+' players');
+    PPL_LABEL = word.charAt(0).toUpperCase()+word.slice(1)+' in The Draw';
     $('#pplHead').textContent = `${fmt(rows.length)} ${word} in the ${fmt((list||BANDS).length)} bands shown`
       + (rows.length>PPL_CAP?` \u2014 best ${PPL_CAP} first`:'');
     $('#pplRow').className='pbands';
@@ -1203,6 +1262,7 @@ function renderPeopleStrip(list){
     return;
   }
 
+  $('#pplExp').hidden=true; PPL_ROWS=[];
   let hits=(field==='_all'||field==='member_names') ? peopleFor(q).slice(0,14) : [];
   if(!hits.length && personNote) hits=personNote.map(n=>PEOPLE.get(pkey(n))).filter(Boolean).slice(0,14);
   strip.hidden = hits.length===0;
@@ -1291,6 +1351,41 @@ function toCSV(bands){
 $('#expCsv').addEventListener('click',e=>busy(e.target,'Saving…',()=>{
   download(new Blob([toCSV(selectedBands())],{type:'text/csv;charset=utf-8'}),fileBase()+'.csv');
 }));
+
+// ---------- exporting the people panel ----------
+// Whatever the panel is showing goes out whole, not just the 80 rows drawn on screen.
+const pplBase=()=>PPL_LABEL.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'-'+stamp();
+const pplCsv=()=>{
+  const esc=v=>{const t=String(v==null?'':v); return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+  return '﻿'+peopleRows().map(r=>r.map(esc).join(',')).join('\r\n');
+};
+$('#pexCsv').addEventListener('click',e=>busy(e.target,'Saving…',()=>{
+  download(new Blob([pplCsv()],{type:'text/csv;charset=utf-8'}), pplBase()+'.csv');
+}));
+$('#pexDoc').addEventListener('click',e=>busy(e.target,'Saving…',()=>{
+  download(new Blob(['﻿'+peopleDoc()],{type:'application/msword;charset=utf-8'}), pplBase()+'.doc');
+}));
+$('#pexCopy').addEventListener('click',e=>busy(e.target,'Copying…',()=>{
+  const t=peopleRows().map(r=>r.join('\t')).join('\n');
+  return navigator.clipboard.writeText(t).then(()=>{e.target.textContent='Copied';
+    setTimeout(()=>{e.target.textContent='Copy';},1400);});
+}));
+$('#pexXlsx').addEventListener('click',e=>busy(e.target,'Building…',()=>
+  loadXLSX().then(X=>{
+    const rows=peopleRows();
+    const ws=X.utils.aoa_to_sheet(rows);
+    ws['!cols']=[26,13,28,8,14,30,26,26,22,15,15,26,26,24].map(w=>({wch:w}));
+    ws['!autofilter']={ref:X.utils.encode_range({s:{r:0,c:0},e:{r:rows.length-1,c:PEOPLE_COLS.length-1}})};
+    ws['!freeze']={xSplit:0,ySplit:1};
+    const NF={4:'0.00"\u00d7"',9:'#,##0',10:'#,##0'};
+    for(let r=1;r<rows.length;r++) for(const c in NF){
+      const cell=ws[X.utils.encode_cell({r:r,c:+c})];
+      if(cell&&cell.t==='n') cell.z=NF[c];
+    }
+    const wb=X.utils.book_new();
+    X.utils.book_append_sheet(wb,ws,PPL_LABEL.slice(0,28));
+    X.writeFile(wb, pplBase()+'.xlsx');
+  })));
 // --- real .xlsx, with the sheet set up to work in ---
 let xlsxLib=null;
 function loadXLSX(){

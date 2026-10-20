@@ -34,10 +34,15 @@ Neither mistake announces itself. `deploy.py` always runs every step in order,
 whichever file was touched, which is the point of it.
 
 The chain: `tools/members.py` (MusicBrainz line-ups) → `tools/discogs_members.py`
-(Discogs line-ups, only for bands MusicBrainz missed) → `tools/instruments.py`
-(one primary instrument per member) → `tools/copy.py` (headlines, pitches,
-and it calls `tools/redact.py`) → `tools/corrections.py` → `tools/encrypt.py`
-across every dataset in `tools/datasets.py` → commit → push.
+(Discogs line-ups, only for bands MusicBrainz missed) → `tools/discogs_instruments.py`
+(instruments for those, from release credits) → `tools/hand_members.py` (line-ups read
+by hand) → `tools/instruments.py` (one primary instrument per member) → `tools/copy.py`
+(headlines, pitches, and it calls `tools/redact.py`) → `tools/corrections.py` →
+`tools/encrypt.py` across every dataset in `tools/datasets.py` → commit → push.
+
+`discogs_instruments.py` must stay ahead of `instruments.py`: it writes `roles`, not
+`instrument`, so that `instruments.py` still normalises them and still propagates a
+person's instrument to the other bands they play in.
 
 `tools/datasets.py` is the single list of datasets. Adding a festival means adding
 one line there and one `private/<id>.json`; nothing else needs to know.
@@ -52,6 +57,41 @@ one line there and one `private/<id>.json`; nothing else needs to know.
    redirecting to a name Pages no longer answers for — the site goes dark.
    `deploy.py` refuses to push without it. Only add it when DNS already
    resolves; adding it first takes the site down until DNS catches up.
+
+## The ten-minute cache, and why the page reloads itself
+
+Pages serves `index.html` with `cache-control: max-age=600`. Those headers cannot be
+changed from here, so twice a shipped change looked like it had never shipped and the
+next twenty minutes went into proving the deploy had worked.
+
+The page now checks for itself. `deploy.py` writes a timestamp to `build.txt` and
+rewrites the matching `const BUILD=` in `index.html`; on load the page fetches
+`build.txt` with the cache bypassed and reloads once if the two differ, guarded by a
+`sessionStorage` key so a stale CDN edge cannot loop it.
+
+So a report of "I don't see it" is worth verifying against the live URL before changing
+any code, and a change to the deploy script must keep stamping both.
+
+## Where line-ups come from, and what is exhausted
+
+In order of what has already been tried for the 3,018 bands:
+
+- **MusicBrainz** - 5,439 member entries, 59% carrying an instrument. The good source.
+- **Discogs** - 2,080 entries. Tried against every band MusicBrainz missed and now
+  exhausted; re-running it reports nothing left to try. Its artist endpoint gives names
+  only, so 97% of those people arrived with no instrument. `dg_credits.py` fills them
+  from release `extraartists` roles, which is the one place Discogs keeps instruments.
+- **Hand research** via WebSearch and WebFetch, in `work/hand/result_*.json`, globbed by
+  `tools/hand_members.py`. Roughly a 50% hit rate on bands both databases missed. The
+  binding constraint is the per-turn web-search budget, not the method, which is why
+  this runs as parallel agents over the slices in `work/ung/`.
+- **Bandcamp scraping is a dead end.** It answers plain `curl` from this container with
+  a ~3KB bot-challenge interstitial, not the page. Do not build another scraper for it
+  and do not try to defeat the challenge; WebFetch reaches those pages instead.
+
+Any normalizer that maps a role to an instrument must test **Bass before Guitar**.
+"bass guitar" contains "guitar", and the other order silently filed 557 bassists as
+guitarists.
 
 ## GoDaddy
 

@@ -238,6 +238,9 @@ section > h2 .of{font-weight:400;color:var(--faint);font-size:15px}
 .pplstrip[hidden]{display:none!important}
 .pplstrip h4{margin:0 0 9px;font:600 13px "Instrument Sans",sans-serif;color:var(--muted)}
 .pplstrip .row{display:flex;flex-wrap:wrap;gap:7px}
+.pplstrip .pbands{max-height:420px;overflow-y:auto}
+.pplstrip .pband{padding:9px 10px}
+.pplstrip .pband b{font-size:14.5px}
 .pplstrip .who{background:var(--datum-soft);color:var(--datum)}
 .pplstrip .who:hover{background:var(--datum);color:#fff}
 .pplstrip .who small{color:inherit;opacity:.72}
@@ -1149,14 +1152,63 @@ function syncSel(){
   $('#pickShown').hidden = !shown.length;
   $('#pickNone').hidden = n===0;
 }
-function renderPeopleStrip(){
+const GRADE_RANK={'A+':0,'A':1,'A-':2,'B':3,'C':4,'D':5};
+// "drummers" is a question about people, not bands. Answer it with the drummers,
+// drawn only from the bands the current filters leave standing, so it composes with
+// everything else: drummers + grade A+, or guitarists + label 4AD.
+function playersIn(list, inst){
+  const out=new Map();
+  list.forEach(b=>(b.members||[]).forEach(m=>{
+    if(m.instrument!==inst) return;
+    const k=pkey(m.name); if(!k) return;
+    if(!out.has(k)) out.set(k,{name:m.name,instrument:inst,bands:[]});
+    out.get(k).bands.push({band:b.name,grade:b.grade||'',idx:b.size_vs_sincere_engineer});
+  }));
+  const rows=[...out.values()];
+  rows.forEach(p=>p.bands.sort((a,b)=>(GRADE_RANK[a.grade]??9)-(GRADE_RANK[b.grade]??9)));
+  // best grade first, then closest in size to Sincere Engineer
+  rows.sort((a,b)=>{
+    const ga=GRADE_RANK[a.bands[0].grade]??9, gb=GRADE_RANK[b.bands[0].grade]??9;
+    if(ga!==gb) return ga-gb;
+    const da=Math.abs(Math.log((a.bands[0].idx||1))), db=Math.abs(Math.log((b.bands[0].idx||1)));
+    return da-db;
+  });
+  return rows;
+}
+const PPL_CAP=80;
+function renderPeopleStrip(list){
   const strip=$('#pplstrip'); if(!strip) return;
   const q=$('#q').value.trim(), field=$('#field').value;
+  const inst=(field==='_all'||field==='_instruments') ? instrumentFor(q) : '';
+
+  if(inst){
+    const rows=playersIn(list||BANDS, inst);
+    strip.hidden = rows.length===0;
+    if(!rows.length) return;
+    const word={Drums:'drummers',Guitar:'guitarists',Bass:'bassists',Vocals:'singers',
+      Keys:'keyboard players',Synth:'synth players',Horns:'horn players',Strings:'string players',
+      Percussion:'percussionists',Turntables:'DJs'}[inst]||(inst.toLowerCase()+' players');
+    $('#pplHead').textContent = `${fmt(rows.length)} ${word} in the ${fmt((list||BANDS).length)} bands shown`
+      + (rows.length>PPL_CAP?` \u2014 best ${PPL_CAP} first`:'');
+    $('#pplRow').className='pbands';
+    $('#pplRow').innerHTML = rows.slice(0,PPL_CAP).map(p=>{
+      const b=p.bands[0];
+      const more=p.bands.length>1?` <span class="meta">+${p.bands.length-1} more</span>`:'';
+      return `<button class="pband" type="button" data-person="${esc(p.name)}">
+        ${b.grade?`<span class="grade ${gcls(b.grade)}">${esc(b.grade)}</span>`:'<span class="grade g-none">\u2014</span>'}
+        <span><b>${esc(p.name)}</b> <span class="meta">${esc(inst.toLowerCase())}</span><span class="meta" style="display:block">${esc(b.band)}${more}</span></span>
+        <span class="sp"></span>
+        <span class="idx">${b.idx!=null?b.idx.toFixed(2)+'\u00d7':''}</span>
+      </button>`;}).join('');
+    return;
+  }
+
   let hits=(field==='_all'||field==='member_names') ? peopleFor(q).slice(0,14) : [];
   if(!hits.length && personNote) hits=personNote.map(n=>PEOPLE.get(pkey(n))).filter(Boolean).slice(0,14);
   strip.hidden = hits.length===0;
   if(!hits.length) return;
   $('#pplHead').textContent = hits.length===1 ? 'One person matches that name' : `${hits.length} people match that name`;
+  $('#pplRow').className='row';
   $('#pplRow').innerHTML = hits.map(p=>
     `<button class="who" type="button" data-person="${esc(p.name)}">${esc(p.name)}<small>${p.bands.length} band${p.bands.length>1?'s':''}</small></button>`).join('');
 }
@@ -1176,7 +1228,7 @@ function renderTable(){
     <td class="n" title="${b.earnings_confidence?esc(b.earnings_confidence+' \u2014 '+(b.earnings_error_band||'')):''}">${b.est_income_top_member?'$'+short(b.est_income_top_member):'—'}</td>
     <td>${hl(b.label)}</td><td class="${/^Not /.test(b.agency||'')?'nf':''}">${hl(b.agency)}</td><td>${hl(b.agent)}</td></tr>`).join('')
     || `<tr><td colspan="${COLS.length+1}" class="empty">Nothing matches those filters. Widen a slider or clear one.</td></tr>`;
-  syncSel(); renderPeopleStrip();
+  syncSel(); renderPeopleStrip(list);
 }
 document.addEventListener('click',e=>{
   const w=e.target.closest('[data-person]'); if(!w) return;

@@ -54,6 +54,7 @@ def main():
     run(sys.executable, 'tools/discogs_members.py')
     run(sys.executable, 'tools/discogs_instruments.py')
     run(sys.executable, 'tools/bio_instruments.py')
+    run(sys.executable, 'tools/top_instruments.py')
     run(sys.executable, 'tools/hand_members.py')
     run(sys.executable, 'tools/instruments.py', stdout=subprocess.DEVNULL)
     print('2/4 copy + redactions'); run(sys.executable, 'tools/copy.py')

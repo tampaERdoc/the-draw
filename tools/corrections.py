@@ -51,6 +51,28 @@ DOUBTFUL = {
     'Animals in the Attic': 'Handle displays as “Spencer Rakela”, a personal name. Account may be the frontman’s rather than the band’s.',
 }
 
+# Line-ups that research found to have changed since the source we built from.
+# A line-up is the one field here that can go stale without any figure looking wrong,
+# so there is nothing to detect it automatically - it has to be written down.
+STALE_LINEUP = {
+    'Laura Jane Grace':
+        'A 2026 tour announcement names a new band \u2014 Ara Babajian, King Mike and Lulu '
+        'Lucious \u2014 in place of the widely indexed Mississippi Medicals. Any line-up '
+        'shown here may predate that change.',
+    'Cor de Lux':
+        'Drum seat has changed. post-punk.com has Dana Quinn, the Hopscotch 2026 bio has '
+        'Jacob Richardson. The 2026 bio is the one used.',
+    'Walter Mitty and His Makeshift Orchestra':
+        'Same project as Walter Etc., revived under this name in 2025. The only documented '
+        'line-up is the three 2009 founders, which is unlikely to be who tours.',
+    'Gus Englehorn':
+        'Estee Preda is widely reported on drums, but the one readable source credits her '
+        'only with backing vocals.',
+    'Teen Agers':
+        'Orlando Weekly reported a final show. Confirm the band is still active before '
+        'treating a 2026 booking as current.',
+}
+
 def audit(b):
     """Instagram out of all proportion to Spotify: a hint that one of them is wrong."""
     ig, sp = b.get('instagram_followers'), b.get('spotify_listeners')
@@ -76,6 +98,10 @@ def main():
                 b['flags'] = (b.get('flags', '') + ' ' + note).strip()
                 b['grade'] = ''; b['size_vs_sincere_engineer'] = None; b['grade_score'] = None
                 removed += 1
+            note = STALE_LINEUP.get(b.get('name'))
+            if note and note not in (b.get('flags') or ''):
+                b['flags'] = ((b.get('flags') or '') + ' ' + note).strip()
+                flagged += 1
             note = BAD_INSTAGRAM.get(b.get('name'))
             if note and b.get('instagram_followers') is not None:
                 b['instagram_followers'] = None

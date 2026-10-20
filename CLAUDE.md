@@ -9,7 +9,18 @@ Read this before changing anything here.
 | Live site | https://thedraw.tampaerdoc.com |
 | Repo | `tampaERdoc/the-draw` (GitHub Pages, branch `main`, root) |
 | Old URL | `tampaerdoc.github.io/the-draw` — still works, redirects |
+| Old repo name | `fest-scouting` — renamed; see the note below |
 | Site password | `doghouse` |
+
+If `git remote -v` says `fest-scouting`, set it back:
+
+```
+git remote set-url origin https://github.com/tampaERdoc/the-draw.git
+```
+
+Pushes still succeed on the old name because GitHub redirects renamed repos, so this
+goes unnoticed. It has reverted twice after a container restart. The redirect is a
+courtesy and would stop working if anyone created a repo at the old name.
 
 ## One command
 

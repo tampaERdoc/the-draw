@@ -668,7 +668,7 @@ async function unlock(pw){
 // recently keeps showing yesterday's build and the change looks like it never shipped.
 // Ask the server what the current build is, bypassing the cache, and reload once if we
 // are behind. Guarded so a stale CDN edge can never put us in a reload loop.
-const BUILD='20261019-222859';
+const BUILD='20261019-234948';
 async function checkBuild(){
   try{
     const r=await fetch('build.txt?t='+Date.now(),{cache:'no-store'});
